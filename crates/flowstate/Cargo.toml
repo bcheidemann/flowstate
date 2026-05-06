@@ -1,0 +1,11 @@
+[package]
+name = "flowstate"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Workflow runtime powered by finite state machines."
+homepage = "https://github.com/bcheidemann/flowstate"
+repository = "https://github.com/bcheidemann/flowstate"
+readme = "README.md"
+
+[dependencies]
