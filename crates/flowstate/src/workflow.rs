@@ -1,5 +1,7 @@
 use std::ops::ControlFlow;
 
+use crate::Transition;
+
 /// A workflow that progresses through a series of [`WorkflowState`]s and
 /// produces a [`Workflow::Result`].
 ///
@@ -22,10 +24,7 @@ pub trait Workflow {
         }
     }
 
-    fn result(
-        self,
-        result: Self::Result,
-    ) -> ControlFlow<Self::Result, Box<dyn WorkflowState<Self::Result>>>
+    fn result(self, result: Self::Result) -> Transition<Self::Result>
     where
         Self: Sized,
     {
@@ -40,5 +39,15 @@ pub trait Workflow {
 /// the next state, while [`ControlFlow::Break`] terminates the workflow with a
 /// result.
 pub trait WorkflowState<Result> {
-    fn next(self: Box<Self>) -> ControlFlow<Result, Box<dyn WorkflowState<Result>>>;
+    /// Consumes the current workflow state and returns either:
+    ///
+    /// 1. The next workflow state
+    /// 2. The workflow result
+    ///
+    /// If using the [`Workflow`](flowstate_proc::Workflow) derive macro, return
+    /// `self.transition(state)` to transition to the workflow to the next state.
+    ///
+    /// Return [`self.result(result)`](Workflow::result) to terminate the
+    /// workflow with a result.
+    fn next(self: Box<Self>) -> Transition<Result>;
 }

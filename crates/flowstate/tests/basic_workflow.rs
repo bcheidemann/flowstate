@@ -1,55 +1,24 @@
-use std::ops::ControlFlow;
+use flowstate::{Transition, Workflow as _, WorkflowState};
 
-use flowstate::Workflow as _;
-
+#[derive(flowstate::Workflow)]
+#[flowstate(result = WorkflowResult)]
 struct BasicWorkflow<State> {
+    #[state]
     _state: State,
-}
-
-impl BasicWorkflow<StateA> {
-    fn init() -> Self {
-        Self { _state: StateA }
-    }
-}
-
-impl<State> flowstate::Workflow for BasicWorkflow<State>
-where
-    BasicWorkflow<State>: flowstate::WorkflowState<WorkflowResult>,
-{
-    type Result = WorkflowResult;
-}
-
-impl<State> BasicWorkflow<State>
-where
-    BasicWorkflow<State>: flowstate::Workflow,
-{
-    fn transition<NewState: 'static>(
-        self,
-        next_state: NewState,
-    ) -> ControlFlow<WorkflowResult, Box<dyn flowstate::WorkflowState<WorkflowResult>>>
-    where
-        BasicWorkflow<NewState>: flowstate::WorkflowState<WorkflowResult>,
-    {
-        ControlFlow::Continue(Box::new(BasicWorkflow { _state: next_state }))
-    }
 }
 
 struct StateA;
 
-impl flowstate::WorkflowState<WorkflowResult> for BasicWorkflow<StateA> {
-    fn next(
-        self: Box<Self>,
-    ) -> ControlFlow<WorkflowResult, Box<dyn flowstate::WorkflowState<WorkflowResult>>> {
+impl WorkflowState<WorkflowResult> for BasicWorkflow<StateA> {
+    fn next(self: Box<Self>) -> Transition<WorkflowResult> {
         self.transition(StateB)
     }
 }
 
 struct StateB;
 
-impl flowstate::WorkflowState<WorkflowResult> for BasicWorkflow<StateB> {
-    fn next(
-        self: Box<Self>,
-    ) -> ControlFlow<WorkflowResult, Box<dyn flowstate::WorkflowState<WorkflowResult>>> {
+impl WorkflowState<WorkflowResult> for BasicWorkflow<StateB> {
+    fn next(self: Box<Self>) -> Transition<WorkflowResult> {
         self.result(WorkflowResult)
     }
 }
@@ -58,8 +27,8 @@ impl flowstate::WorkflowState<WorkflowResult> for BasicWorkflow<StateB> {
 struct WorkflowResult;
 
 #[test]
-fn test() {
-    let workflow = BasicWorkflow::init();
+fn test_basic_workflow() {
+    let workflow = BasicWorkflow::new(StateA);
     let result = workflow.run();
     assert_eq!(result, WorkflowResult);
 }
