@@ -1,2 +1,3 @@
-pub trait Workflow {}
+mod workflow;
 
+pub use workflow::*;
