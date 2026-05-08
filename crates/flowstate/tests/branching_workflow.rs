@@ -28,19 +28,13 @@ impl DiskDrive {
         self.history.push((self.state, command));
 
         match command {
-            DiskDriveCommand::Open => match self.state {
-                DiskDriveState::Closed => self.state = DiskDriveState::Opening,
-                _ => {}
-            },
+            DiskDriveCommand::Open => if let DiskDriveState::Closed = self.state { self.state = DiskDriveState::Opening },
             DiskDriveCommand::Wait => match self.state {
                 DiskDriveState::Opening => self.state = DiskDriveState::Open,
                 DiskDriveState::Closing => self.state = DiskDriveState::Closed,
                 _ => {}
             },
-            DiskDriveCommand::Close => match self.state {
-                DiskDriveState::Open => self.state = DiskDriveState::Closing,
-                _ => {}
-            },
+            DiskDriveCommand::Close => if let DiskDriveState::Open = self.state { self.state = DiskDriveState::Closing },
         }
     }
 }
