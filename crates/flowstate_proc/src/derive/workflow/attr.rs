@@ -4,15 +4,15 @@ use syn::{
 };
 
 use crate::err::{
-    DuplicateResultArguments, MissingResultArgument, UnexpectedArgumentsForStateAttribute,
-    UnknownArgument,
+    DuplicateAttributeArgument, MissingAttributeArgument, UnexpectedArgumentsForStateAttribute,
+    UnknownAttributeArgument,
 };
 
-pub struct FlowstateAttr {
+pub struct FlowstateAttrArgs {
     pub result_type: Path,
 }
 
-impl Parse for FlowstateAttr {
+impl Parse for FlowstateAttrArgs {
     fn parse(mut input: ParseStream) -> syn::Result<Self> {
         let span = input.span();
 
@@ -25,34 +25,36 @@ impl Parse for FlowstateAttr {
             match ident_name.as_str() {
                 "result" => {
                     if result_type.is_some() {
-                        return Err(DuplicateResultArguments::at(ident).into());
+                        return Err(DuplicateAttributeArgument::at(ident).with("result").into());
                     }
                     result_type = Some(Self::parse_result_type(&mut input)?);
                 }
                 _ => {
-                    return Err(UnknownArgument::at(ident).with(ident_name).into());
+                    return Err(UnknownAttributeArgument::at(ident).with(ident_name).into());
                 }
             }
         }
 
         let Some(result_type) = result_type else {
-            return Err(MissingResultArgument::at(span).into_syn_error());
+            return Err(MissingAttributeArgument::at(span)
+                .with("result")
+                .into_syn_error());
         };
 
         Ok(Self { result_type })
     }
 }
 
-impl FlowstateAttr {
+impl FlowstateAttrArgs {
     fn parse_result_type(input: &mut ParseStream) -> syn::Result<Path> {
         input.parse::<Token![=]>()?;
         input.parse::<Path>()
     }
 }
 
-pub struct StateAttr;
+pub struct StateAttrArgs;
 
-impl Parse for StateAttr {
+impl Parse for StateAttrArgs {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         if !input.is_empty() {
             let unexpected: proc_macro2::TokenStream = input.parse()?;

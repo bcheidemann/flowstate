@@ -1,23 +1,25 @@
-use flowstate::{Transition, Workflow as _, WorkflowState};
+use flowstate::{State, Transition, Workflow, WorkflowState as _};
 
-#[derive(flowstate::Workflow)]
+#[derive(Workflow)]
 #[flowstate(result = WorkflowResult)]
 struct BasicWorkflow<State> {
     #[state]
     _state: State,
 }
 
+#[derive(State)]
 struct StateA;
 
-impl WorkflowState<WorkflowResult> for BasicWorkflow<StateA> {
+impl BasicWorkflowState for BasicWorkflow<StateA> {
     fn next(self: Box<Self>) -> Transition<WorkflowResult> {
         self.transition(StateB)
     }
 }
 
+#[derive(State)]
 struct StateB;
 
-impl WorkflowState<WorkflowResult> for BasicWorkflow<StateB> {
+impl BasicWorkflowState for BasicWorkflow<StateB> {
     fn next(self: Box<Self>) -> Transition<WorkflowResult> {
         self.result(WorkflowResult)
     }

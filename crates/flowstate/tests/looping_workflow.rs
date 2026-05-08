@@ -1,4 +1,4 @@
-use flowstate::{Transition, Workflow, WorkflowState};
+use flowstate::{State, Transition, Workflow, WorkflowState as _};
 
 #[derive(Workflow)]
 #[flowstate(result = usize)]
@@ -8,9 +8,10 @@ struct CountLengthOfVecWorkflow<State> {
     vec: Vec<u8>,
 }
 
+#[derive(State)]
 struct Count(usize);
 
-impl WorkflowState<usize> for CountLengthOfVecWorkflow<Count> {
+impl CountLengthOfVecWorkflowState for CountLengthOfVecWorkflow<Count> {
     fn next(mut self: Box<Self>) -> Transition<usize> {
         let current_count = self.state.0;
 

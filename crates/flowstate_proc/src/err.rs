@@ -117,13 +117,21 @@ flowstate_derive_err!(
     MissingFlowstateAttributeOnWorkflow,
     "Workflow requires a #[flowstate(result = ...)] attribute"
 );
-flowstate_derive_err!(DuplicateResultArguments, "Duplicate `result` argument");
 flowstate_derive_err!(
-    UnknownArgument,
-    UnknownArgumentSource,
+    DuplicateAttributeArgument,
+    DuplicateAttributeArgumentSource,
+    |arg: &'static str| format!("Duplicate `{arg}` argument")
+);
+flowstate_derive_err!(
+    UnknownAttributeArgument,
+    UnknownAttributeArgumentSource,
     |name: String| format!("Unknown argument `{name}`")
 );
-flowstate_derive_err!(MissingResultArgument, "Missing `result` argument");
+flowstate_derive_err!(
+    MissingAttributeArgument,
+    MissingAttributeArgumentSource,
+    |arg: &'static str| format!("Missing `{arg}` argument")
+);
 flowstate_derive_err!(
     UnexpectedArgumentsForStateAttribute,
     "The #[state] attribute takes no arguments"

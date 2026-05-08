@@ -1,10 +1,10 @@
-use flowstate::{Workflow, WorkflowState};
+use flowstate::{State, Workflow, WorkflowState as _};
 
 struct WorkflowContext {
     result: String,
 }
 
-#[derive(flowstate::Workflow)]
+#[derive(Workflow)]
 #[flowstate(result = String)]
 struct WorkflowWithContext<State> {
     #[state]
@@ -12,17 +12,19 @@ struct WorkflowWithContext<State> {
     ctx: WorkflowContext,
 }
 
+#[derive(State)]
 struct StateA;
 
-impl WorkflowState<String> for WorkflowWithContext<StateA> {
+impl WorkflowWithContextState for WorkflowWithContext<StateA> {
     fn next(self: Box<Self>) -> flowstate::Transition<String> {
         self.transition(StateB)
     }
 }
 
+#[derive(State)]
 struct StateB;
 
-impl WorkflowState<String> for WorkflowWithContext<StateB> {
+impl WorkflowWithContextState for WorkflowWithContext<StateB> {
     fn next(self: Box<Self>) -> flowstate::Transition<String> {
         let result = self.ctx.result.clone();
 

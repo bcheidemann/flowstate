@@ -1,6 +1,6 @@
-use std::ops::ControlFlow;
+use std::{any::type_name, ops::ControlFlow};
 
-use flowstate::{Transition, Workflow, WorkflowState};
+use flowstate::{State, Transition, Workflow, WorkflowState};
 
 struct BasicWorkflow<State> {
     _state: State,
@@ -12,17 +12,13 @@ impl BasicWorkflow<StateA> {
     }
 }
 
-impl<State> Workflow for BasicWorkflow<State>
-where
-    BasicWorkflow<State>: WorkflowState<WorkflowResult>,
-{
-    type Result = WorkflowResult;
+impl<State: flowstate::State> Workflow for BasicWorkflow<State> {
+    fn state(&self) -> &dyn flowstate::State {
+        &self._state
+    }
 }
 
-impl<State> BasicWorkflow<State>
-where
-    BasicWorkflow<State>: Workflow,
-{
+impl<State> BasicWorkflow<State> {
     fn transition<NewState: 'static>(self, next_state: NewState) -> Transition<WorkflowResult>
     where
         BasicWorkflow<NewState>: WorkflowState<WorkflowResult>,
@@ -33,6 +29,12 @@ where
 
 struct StateA;
 
+impl State for StateA {
+    fn name(&self) -> String {
+        type_name::<StateA>().to_string()
+    }
+}
+
 impl WorkflowState<WorkflowResult> for BasicWorkflow<StateA> {
     fn next(self: Box<Self>) -> Transition<WorkflowResult> {
         self.transition(StateB)
@@ -40,6 +42,12 @@ impl WorkflowState<WorkflowResult> for BasicWorkflow<StateA> {
 }
 
 struct StateB;
+
+impl State for StateB {
+    fn name(&self) -> String {
+        type_name::<StateB>().to_string()
+    }
+}
 
 impl WorkflowState<WorkflowResult> for BasicWorkflow<StateB> {
     fn next(self: Box<Self>) -> Transition<WorkflowResult> {
