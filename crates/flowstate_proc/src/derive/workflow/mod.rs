@@ -275,6 +275,10 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
             State: ::flowstate::State,
             #ident<State>: #workflow_state_trait_ident
         {
+            fn name(&self) -> String {
+                self.state_name()
+            }
+
             fn next(self: Box<Self>) -> ::flowstate::Transition<#result_type> {
                 #workflow_state_trait_ident::next(self)
             }

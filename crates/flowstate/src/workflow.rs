@@ -13,6 +13,10 @@ pub trait Workflow {
 /// the next state, while [`ControlFlow::Break`] terminates the workflow with a
 /// result.
 pub trait WorkflowState<Result>: Workflow {
+    fn name(&self) -> String {
+        self.state().name()
+    }
+
     /// Consumes the current workflow state and returns either:
     ///
     /// 1. The next workflow state

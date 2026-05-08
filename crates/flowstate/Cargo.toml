@@ -1,6 +1,6 @@
 [package]
 name = "flowstate"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Workflow runtime powered by finite state machines."
@@ -13,4 +13,4 @@ macros = ["dep:flowstate_proc"]
 default = ["macros"]
 
 [dependencies]
-flowstate_proc = { version = "0.2.0", path = "../flowstate_proc", optional = true }
+flowstate_proc = { version = "0.3.0", path = "../flowstate_proc", optional = true }
