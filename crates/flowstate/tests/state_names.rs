@@ -1,6 +1,6 @@
 use std::any::type_name;
 
-use flowstate::{State, Transition, Workflow};
+use flowstate::prelude::*;
 
 #[derive(Workflow)]
 #[flowstate(result = MyWorkflowResult)]

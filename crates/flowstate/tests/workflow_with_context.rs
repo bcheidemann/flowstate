@@ -1,4 +1,4 @@
-use flowstate::{State, Workflow, WorkflowState as _};
+use flowstate::prelude::*;
 
 struct WorkflowContext {
     result: String,

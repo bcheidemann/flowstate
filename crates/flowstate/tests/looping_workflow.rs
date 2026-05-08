@@ -1,4 +1,4 @@
-use flowstate::{State, Transition, Workflow, WorkflowState as _};
+use flowstate::prelude::*;
 
 #[derive(Workflow)]
 #[flowstate(result = usize)]

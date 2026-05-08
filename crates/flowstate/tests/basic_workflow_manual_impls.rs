@@ -1,6 +1,6 @@
 use std::{any::type_name, ops::ControlFlow};
 
-use flowstate::{State, Transition, Workflow, WorkflowState};
+use flowstate::{WorkflowState, prelude::*};
 
 struct BasicWorkflow<State> {
     _state: State,

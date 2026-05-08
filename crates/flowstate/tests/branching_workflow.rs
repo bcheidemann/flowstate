@@ -1,6 +1,6 @@
 use std::ops::ControlFlow;
 
-use flowstate::{State, Transition, Workflow, WorkflowState as _};
+use flowstate::prelude::*;
 
 #[derive(Clone, Copy)]
 enum DiskDriveState {
