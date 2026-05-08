@@ -8,5 +8,9 @@ homepage = "https://github.com/bcheidemann/flowstate"
 repository = "https://github.com/bcheidemann/flowstate"
 readme = "README.md"
 
+[features]
+macros = ["dep:flowstate_proc"]
+default = ["macros"]
+
 [dependencies]
-flowstate_proc = { version = "0.2.0", path = "../flowstate_proc" }
+flowstate_proc = { version = "0.2.0", path = "../flowstate_proc", optional = true }
