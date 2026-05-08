@@ -21,7 +21,7 @@ struct StateB;
 
 impl BasicWorkflowState for BasicWorkflow<StateB> {
     fn next(self: Box<Self>) -> Transition<WorkflowResult> {
-        self.result(WorkflowResult)
+        self.finish(WorkflowResult)
     }
 }
 

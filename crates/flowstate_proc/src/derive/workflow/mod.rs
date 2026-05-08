@@ -187,11 +187,15 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
             #ident
         }
     });
-    let rest_field_transition_assignments = fields.rest.iter().map(|Field { ident, .. }| {
-        quote! {
-            #ident: self.#ident
-        }
-    });
+    let rest_field_transition_assignments: Vec<_> = fields
+        .rest
+        .iter()
+        .map(|Field { ident, .. }| {
+            quote! {
+                #ident: self.#ident
+            }
+        })
+        .collect();
     let workflow_state_trait_ident = Ident::new(&format!("{}State", ident), ident.span());
 
     Ok(quote! {
@@ -225,6 +229,20 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
                     #(#rest_field_transition_assignments,)*
                 }))
             }
+
+            fn transition_with<NextState: 'static, Fn>(
+                self,
+                map_fn: Fn,
+            ) -> ::flowstate::Transition<#result_type>
+            where
+                #ident<NextState>: ::flowstate::WorkflowState<#result_type>,
+                Fn: FnOnce(State) -> NextState,
+            {
+                Transition::Continue(Box::new(#ident {
+                    #state_field_ident: map_fn(self.#state_field_ident),
+                    #(#rest_field_transition_assignments,)*
+                }))
+            }
         }
 
         /// Each implementation represents the workflow in a specific state and
@@ -240,8 +258,9 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
         /// Return [`self.transition(next_state)`] to transition to the
         /// workflow to the next state.
         ///
-        /// Return [`self.result(result)`](flowstate::Workflow::result) to
-        /// terminate the workflow with a result.
+        /// Return [`self.finish(result)`](flowstate::Workflow::finish) or
+        /// [`self.finish_with(|workflow| result)`](flowstate::Workflow::finish_with)
+        /// to terminate the workflow with a result.
         ///
         trait #workflow_state_trait_ident: ::flowstate::Workflow {
             fn state_name(&self) -> String {

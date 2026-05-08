@@ -28,7 +28,7 @@ impl WorkflowWithContextState for WorkflowWithContext<StateB> {
     fn next(self: Box<Self>) -> flowstate::Transition<String> {
         let result = self.ctx.result.clone();
 
-        self.result(result)
+        self.finish(result)
     }
 }
 

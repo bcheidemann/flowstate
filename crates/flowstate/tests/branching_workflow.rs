@@ -1,5 +1,3 @@
-use std::ops::ControlFlow;
-
 use flowstate::prelude::*;
 
 #[derive(Clone, Copy)]
@@ -64,12 +62,7 @@ impl EjectDiskWorkflowState for EjectDiskWorkflow<ValidateDriveInitialState> {
     fn next(self: Box<Self>) -> Transition<EjectDiskResult> {
         match self.drive.state {
             DiskDriveState::Opening => self.transition(WaitForDriveOpen),
-            DiskDriveState::Open => {
-                // TODO: This should be possible through self.result but because
-                //       it takes ownership of self, we can't have moved out of
-                //       self. Maybe a self.map_result(|workflow| ...) helper?
-                ControlFlow::Break(self.drive)
-            }
+            DiskDriveState::Open => self.finish_with(|workflow| workflow.drive),
             DiskDriveState::Closing => self.transition(WaitForDriveClosed),
             DiskDriveState::Closed => self.transition(OpenDrive),
         }
@@ -105,10 +98,7 @@ impl EjectDiskWorkflowState for EjectDiskWorkflow<WaitForDriveOpen> {
     fn next(mut self: Box<Self>) -> Transition<EjectDiskResult> {
         self.drive.issue_command(DiskDriveCommand::Wait);
 
-        // TODO: This should be possible through self.result but because
-        //       it takes ownership of self, we can't have moved out of
-        //       self. Maybe a self.map_result(|workflow| ...) helper?
-        ControlFlow::Break(self.drive)
+        self.finish_with(|workflow| workflow.drive)
     }
 }
 

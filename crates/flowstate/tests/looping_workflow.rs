@@ -18,7 +18,7 @@ impl CountLengthOfVecWorkflowState for CountLengthOfVecWorkflow<Count> {
         if self.vec.pop().is_some() {
             self.transition(Count(current_count + 1))
         } else {
-            self.result(current_count)
+            self.finish(current_count)
         }
     }
 }

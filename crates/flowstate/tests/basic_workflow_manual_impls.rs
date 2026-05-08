@@ -1,4 +1,4 @@
-use std::{any::type_name, ops::ControlFlow};
+use std::any::type_name;
 
 use flowstate::{WorkflowState, prelude::*};
 
@@ -23,7 +23,7 @@ impl<State> BasicWorkflow<State> {
     where
         BasicWorkflow<NewState>: WorkflowState<WorkflowResult>,
     {
-        ControlFlow::Continue(Box::new(BasicWorkflow { _state: next_state }))
+        Transition::Continue(Box::new(BasicWorkflow { _state: next_state }))
     }
 }
 
@@ -51,7 +51,7 @@ impl State for StateB {
 
 impl WorkflowState<WorkflowResult> for BasicWorkflow<StateB> {
     fn next(self: Box<Self>) -> Transition<WorkflowResult> {
-        self.result(WorkflowResult)
+        self.finish(WorkflowResult)
     }
 }
 

@@ -18,8 +18,9 @@ pub trait WorkflowState<Result>: Workflow {
     /// 1. The next workflow state
     /// 2. The workflow result
     ///
-    /// Return [`self.result(result)`](Workflow::result) to terminate the
-    /// workflow with a result.
+    /// Return [`self.finish(result)`](Workflow::finish) or
+    /// [`self.finish_with(|workflow| result)`](Workflow::finish_with) to
+    /// terminate the workflow with a result.
     fn next(self: Box<Self>) -> Transition<Result>;
 
     fn run(self) -> Result
@@ -36,10 +37,18 @@ pub trait WorkflowState<Result>: Workflow {
         }
     }
 
-    fn result(self, result: Result) -> Transition<Result>
+    fn finish(self, result: Result) -> Transition<Result>
     where
         Self: Sized,
     {
         ControlFlow::Break(result)
+    }
+
+    fn finish_with<Fn>(self, map_fn: Fn) -> Transition<Result>
+    where
+        Self: Sized,
+        Fn: FnOnce(Self) -> Result,
+    {
+        ControlFlow::Break(map_fn(self))
     }
 }
