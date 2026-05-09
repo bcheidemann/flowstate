@@ -59,7 +59,7 @@ type EjectDiskResult = DiskDrive;
 struct ValidateDriveInitialState;
 
 impl EjectDiskWorkflowState for EjectDiskWorkflow<ValidateDriveInitialState> {
-    fn next(self: Box<Self>) -> Transition<EjectDiskResult> {
+    fn next(self: Box<Self>) -> StaticTransition<EjectDiskResult> {
         match self.drive.state {
             DiskDriveState::Opening => self.transition(WaitForDriveOpen),
             DiskDriveState::Open => self.finish_with(|workflow| workflow.drive),
@@ -73,7 +73,7 @@ impl EjectDiskWorkflowState for EjectDiskWorkflow<ValidateDriveInitialState> {
 struct WaitForDriveClosed;
 
 impl EjectDiskWorkflowState for EjectDiskWorkflow<WaitForDriveClosed> {
-    fn next(mut self: Box<Self>) -> Transition<EjectDiskResult> {
+    fn next(mut self: Box<Self>) -> StaticTransition<EjectDiskResult> {
         self.drive.issue_command(DiskDriveCommand::Wait);
 
         self.transition(OpenDrive)
@@ -84,7 +84,7 @@ impl EjectDiskWorkflowState for EjectDiskWorkflow<WaitForDriveClosed> {
 struct OpenDrive;
 
 impl EjectDiskWorkflowState for EjectDiskWorkflow<OpenDrive> {
-    fn next(mut self: Box<Self>) -> Transition<EjectDiskResult> {
+    fn next(mut self: Box<Self>) -> StaticTransition<EjectDiskResult> {
         self.drive.issue_command(DiskDriveCommand::Open);
 
         self.transition(WaitForDriveOpen)
@@ -95,7 +95,7 @@ impl EjectDiskWorkflowState for EjectDiskWorkflow<OpenDrive> {
 struct WaitForDriveOpen;
 
 impl EjectDiskWorkflowState for EjectDiskWorkflow<WaitForDriveOpen> {
-    fn next(mut self: Box<Self>) -> Transition<EjectDiskResult> {
+    fn next(mut self: Box<Self>) -> StaticTransition<EjectDiskResult> {
         self.drive.issue_command(DiskDriveCommand::Wait);
 
         self.finish_with(|workflow| workflow.drive)

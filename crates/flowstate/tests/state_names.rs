@@ -14,7 +14,7 @@ struct MyWorkflow<State> {
 struct StateA;
 
 impl MyWorkflowState for MyWorkflow<StateA> {
-    fn next(self: Box<Self>) -> Transition<MyWorkflowResult> {
+    fn next(self: Box<Self>) -> StaticTransition<MyWorkflowResult> {
         self.transition(StateB)
     }
 }
@@ -24,7 +24,7 @@ impl MyWorkflowState for MyWorkflow<StateA> {
 struct StateB;
 
 impl MyWorkflowState for MyWorkflow<StateB> {
-    fn next(self: Box<Self>) -> Transition<MyWorkflowResult> {
+    fn next(self: Box<Self>) -> StaticTransition<MyWorkflowResult> {
         self.transition(StateC { random_number: 32 })
     }
 }
@@ -42,7 +42,7 @@ impl StateC {
 }
 
 impl MyWorkflowState for MyWorkflow<StateC> {
-    fn next(self: Box<Self>) -> Transition<MyWorkflowResult> {
+    fn next(self: Box<Self>) -> StaticTransition<MyWorkflowResult> {
         self.transition(StateD)
     }
 }
@@ -55,7 +55,7 @@ impl MyWorkflowState for MyWorkflow<StateD> {
         format!("{} (ctx = {})", self.state.name(), self.ctx)
     }
 
-    fn next(self: Box<Self>) -> Transition<MyWorkflowResult> {
+    fn next(self: Box<Self>) -> StaticTransition<MyWorkflowResult> {
         self.transition(StateB)
     }
 }

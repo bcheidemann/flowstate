@@ -11,7 +11,7 @@ struct BasicWorkflow<State> {
 struct StateA;
 
 impl BasicWorkflowState for BasicWorkflow<StateA> {
-    fn next(self: Box<Self>) -> Transition<WorkflowResult> {
+    fn next(self: Box<Self>) -> StaticTransition<WorkflowResult> {
         self.transition(StateB)
     }
 }
@@ -20,7 +20,7 @@ impl BasicWorkflowState for BasicWorkflow<StateA> {
 struct StateB;
 
 impl BasicWorkflowState for BasicWorkflow<StateB> {
-    fn next(self: Box<Self>) -> Transition<WorkflowResult> {
+    fn next(self: Box<Self>) -> StaticTransition<WorkflowResult> {
         self.finish(WorkflowResult)
     }
 }

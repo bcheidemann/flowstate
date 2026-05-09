@@ -12,7 +12,7 @@ struct CountLengthOfVecWorkflow<State> {
 struct Count(usize);
 
 impl CountLengthOfVecWorkflowState for CountLengthOfVecWorkflow<Count> {
-    fn next(mut self: Box<Self>) -> Transition<usize> {
+    fn next(mut self: Box<Self>) -> StaticTransition<usize> {
         let current_count = self.state.0;
 
         if self.vec.pop().is_some() {

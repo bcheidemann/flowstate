@@ -18,10 +18,32 @@ impl<State: flowstate::State> Workflow for BasicWorkflow<State> {
     }
 }
 
+trait BasicWorkflowState: Workflow {
+    fn state_name(&self) -> String {
+        self.state().name()
+    }
+
+    fn next(self: Box<Self>) -> Transition<'static, WorkflowResult>;
+}
+
+impl<State> WorkflowState<'static, WorkflowResult> for BasicWorkflow<State>
+where
+    State: flowstate::State,
+    BasicWorkflow<State>: BasicWorkflowState,
+{
+    fn name(&self) -> String {
+        self.state_name()
+    }
+
+    fn next(self: Box<Self>) -> Transition<'static, WorkflowResult> {
+        BasicWorkflowState::next(self)
+    }
+}
+
 impl<State> BasicWorkflow<State> {
-    fn transition<NewState: 'static>(self, next_state: NewState) -> Transition<WorkflowResult>
+    fn transition<NewState>(self, next_state: NewState) -> Transition<'static, WorkflowResult>
     where
-        BasicWorkflow<NewState>: WorkflowState<WorkflowResult>,
+        BasicWorkflow<NewState>: WorkflowState<'static, WorkflowResult> + 'static,
     {
         Transition::Continue(Box::new(BasicWorkflow { _state: next_state }))
     }
@@ -35,8 +57,8 @@ impl State for StateA {
     }
 }
 
-impl WorkflowState<WorkflowResult> for BasicWorkflow<StateA> {
-    fn next(self: Box<Self>) -> Transition<WorkflowResult> {
+impl BasicWorkflowState for BasicWorkflow<StateA> {
+    fn next(self: Box<Self>) -> Transition<'static, WorkflowResult> {
         self.transition(StateB)
     }
 }
@@ -49,8 +71,8 @@ impl State for StateB {
     }
 }
 
-impl WorkflowState<WorkflowResult> for BasicWorkflow<StateB> {
-    fn next(self: Box<Self>) -> Transition<WorkflowResult> {
+impl BasicWorkflowState for BasicWorkflow<StateB> {
+    fn next(self: Box<Self>) -> Transition<'static, WorkflowResult> {
         self.finish(WorkflowResult)
     }
 }

@@ -12,7 +12,7 @@ pub trait Workflow {
 /// in [`WorkflowState::next`]. Returning [`ControlFlow::Continue`] advances to
 /// the next state, while [`ControlFlow::Break`] terminates the workflow with a
 /// result.
-pub trait WorkflowState<Result>: Workflow {
+pub trait WorkflowState<'workflow, Result>: Workflow {
     fn name(&self) -> String {
         self.state().name()
     }
@@ -25,11 +25,11 @@ pub trait WorkflowState<Result>: Workflow {
     /// Return [`self.finish(result)`](Workflow::finish) or
     /// [`self.finish_with(|workflow| result)`](Workflow::finish_with) to
     /// terminate the workflow with a result.
-    fn next(self: Box<Self>) -> Transition<Result>;
+    fn next(self: Box<Self>) -> Transition<'workflow, Result>;
 
     fn run(self) -> Result
     where
-        Self: WorkflowState<Result> + Sized,
+        Self: WorkflowState<'workflow, Result> + Sized,
     {
         let mut workflow: Box<dyn WorkflowState<Result>> = Box::new(self);
 
@@ -41,14 +41,14 @@ pub trait WorkflowState<Result>: Workflow {
         }
     }
 
-    fn finish(self, result: Result) -> Transition<Result>
+    fn finish(self, result: Result) -> Transition<'workflow, Result>
     where
         Self: Sized,
     {
         ControlFlow::Break(result)
     }
 
-    fn finish_with<Fn>(self, map_fn: Fn) -> Transition<Result>
+    fn finish_with<Fn>(self, map_fn: Fn) -> Transition<'workflow, Result>
     where
         Self: Sized,
         Fn: FnOnce(Self) -> Result,

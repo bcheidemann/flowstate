@@ -1,1 +1,1 @@
-pub use crate::{State, Transition, Workflow, WorkflowState as _};
+pub use crate::{State, StaticTransition, Transition, Workflow, WorkflowState as _};

@@ -217,12 +217,12 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
 
         impl<State> #ident<State>
         {
-            fn transition<NextState: 'static>(
+            fn transition<NextState>(
                 self,
                 next_state: NextState,
-            ) -> ::flowstate::Transition<#result_type>
+            ) -> ::flowstate::Transition<'static, #result_type>
             where
-                #ident<NextState>: ::flowstate::WorkflowState<#result_type>,
+                #ident<NextState>: ::flowstate::WorkflowState<'static, #result_type> + 'static,
             {
                 ::std::ops::ControlFlow::Continue(Box::new(#ident {
                     #state_field_ident: next_state,
@@ -230,12 +230,12 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
                 }))
             }
 
-            fn transition_with<NextState: 'static, Fn>(
+            fn transition_with<NextState, Fn>(
                 self,
                 map_fn: Fn,
-            ) -> ::flowstate::Transition<#result_type>
+            ) -> ::flowstate::Transition<'static, #result_type>
             where
-                #ident<NextState>: ::flowstate::WorkflowState<#result_type>,
+                #ident<NextState>: ::flowstate::WorkflowState<'static, #result_type> + 'static,
                 Fn: FnOnce(State) -> NextState,
             {
                 Transition::Continue(Box::new(#ident {
@@ -267,10 +267,10 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
                 self.state().name()
             }
 
-            fn next(self: Box<Self>) -> ::flowstate::Transition<#result_type>;
+            fn next(self: Box<Self>) -> ::flowstate::Transition<'static, #result_type>;
         }
 
-        impl<State> ::flowstate::WorkflowState<#result_type> for #ident<State>
+        impl<State> ::flowstate::WorkflowState<'static, #result_type> for #ident<State>
         where
             State: ::flowstate::State,
             #ident<State>: #workflow_state_trait_ident
@@ -279,7 +279,7 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
                 self.state_name()
             }
 
-            fn next(self: Box<Self>) -> ::flowstate::Transition<#result_type> {
+            fn next(self: Box<Self>) -> ::flowstate::Transition<'static, #result_type> {
                 #workflow_state_trait_ident::next(self)
             }
         }
