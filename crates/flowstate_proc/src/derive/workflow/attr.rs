@@ -10,6 +10,7 @@ use crate::err::{
 
 pub struct FlowstateAttrArgs {
     pub result_type: Path,
+    pub state_trait_ident: Option<Ident>,
 }
 
 impl Parse for FlowstateAttrArgs {
@@ -17,6 +18,7 @@ impl Parse for FlowstateAttrArgs {
         let span = input.span();
 
         let mut result_type = None;
+        let mut state_trait_ident = None;
 
         while !input.is_empty() {
             let ident = input.parse::<Ident>()?;
@@ -29,10 +31,24 @@ impl Parse for FlowstateAttrArgs {
                     }
                     result_type = Some(Self::parse_result_type(&mut input)?);
                 }
+                "state_trait" => {
+                    if state_trait_ident.is_some() {
+                        return Err(DuplicateAttributeArgument::at(ident)
+                            .with("state_trait")
+                            .into());
+                    }
+                    state_trait_ident = Some(Self::parse_state_trait_ident(&mut input)?);
+                }
                 _ => {
                     return Err(UnknownAttributeArgument::at(ident).with(ident_name).into());
                 }
             }
+
+            if input.is_empty() {
+                break;
+            }
+
+            input.parse::<Token![,]>()?;
         }
 
         let Some(result_type) = result_type else {
@@ -41,7 +57,10 @@ impl Parse for FlowstateAttrArgs {
                 .into_syn_error());
         };
 
-        Ok(Self { result_type })
+        Ok(Self {
+            result_type,
+            state_trait_ident,
+        })
     }
 }
 
@@ -49,6 +68,11 @@ impl FlowstateAttrArgs {
     fn parse_result_type(input: &mut ParseStream) -> syn::Result<Path> {
         input.parse::<Token![=]>()?;
         input.parse::<Path>()
+    }
+
+    fn parse_state_trait_ident(input: &mut ParseStream) -> syn::Result<Ident> {
+        input.parse::<Token![=]>()?;
+        input.parse::<Ident>()
     }
 }
 

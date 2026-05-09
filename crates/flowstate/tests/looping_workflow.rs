@@ -1,7 +1,10 @@
 use flowstate::prelude::*;
 
 #[derive(Workflow)]
-#[flowstate(result = usize)]
+#[flowstate(
+    result = usize,
+    state_trait = CountLengthOfVecWorkflowState,
+)]
 struct CountLengthOfVecWorkflow<State> {
     #[state]
     state: State,

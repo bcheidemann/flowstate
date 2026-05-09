@@ -1,7 +1,7 @@
 mod attr;
 
 use quote::quote;
-use syn::{DeriveInput, Fields, FieldsNamed, Ident, Path, Type, TypeParam};
+use syn::{DeriveInput, Fields, FieldsNamed, Ident, Type, TypeParam};
 
 use crate::{
     derive::workflow::attr::{FlowstateAttrArgs, StateAttrArgs},
@@ -18,23 +18,23 @@ use crate::{
 pub fn derive_workflow_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let s = validate_input(&input)?;
 
-    impl_workflow(s)
+    impl_workflow(&s)
 }
 
 struct ValidatedWorkflowStruct<'s> {
     ident: &'s Ident,
-    result_type: Path,
+    args: FlowstateAttrArgs,
     fields: ValidatedStructFields<'s>,
 }
 
 fn validate_input(input: &DeriveInput) -> syn::Result<ValidatedWorkflowStruct<'_>> {
-    let attr = validate_flowstate_attr(input)?;
+    let args = validate_flowstate_attr(input)?;
     let state_param = validate_state_type_param(input)?;
     let fields = validate_struct(input, state_param)?;
 
     Ok(ValidatedWorkflowStruct {
         ident: &input.ident,
-        result_type: attr.result_type,
+        args,
         fields,
     })
 }
@@ -170,10 +170,10 @@ fn validate_struct_fields<'a>(
     Ok(ValidatedStructFields { state, rest })
 }
 
-fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenStream> {
+fn impl_workflow(s: &ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenStream> {
     let ValidatedWorkflowStruct {
         ident,
-        result_type,
+        args: FlowstateAttrArgs { result_type, .. },
         fields,
     } = s;
     let state_field_ident = fields.state.ident;
@@ -196,7 +196,7 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
             }
         })
         .collect();
-    let workflow_state_trait_ident = Ident::new(&format!("{}State", ident), ident.span());
+    let state_trait = generate_state_trait(s);
 
     Ok(quote! {
         impl<State> #ident<State> {
@@ -245,6 +245,25 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
             }
         }
 
+        #state_trait
+    })
+}
+
+fn generate_state_trait(s: &ValidatedWorkflowStruct) -> Option<proc_macro2::TokenStream> {
+    let ValidatedWorkflowStruct {
+        ident,
+        args:
+            FlowstateAttrArgs {
+                result_type,
+                state_trait_ident: Some(state_trait_ident),
+            },
+        ..
+    } = &s
+    else {
+        return None;
+    };
+
+    Some(quote! {
         /// Each implementation represents the workflow in a specific state and
         /// defines the transition logic.
         ///
@@ -262,7 +281,7 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
         /// [`self.finish_with(|workflow| result)`](flowstate::Workflow::finish_with)
         /// to terminate the workflow with a result.
         ///
-        trait #workflow_state_trait_ident: ::flowstate::Workflow {
+        trait #state_trait_ident: ::flowstate::Workflow {
             fn state_name(&self) -> String {
                 self.state().name()
             }
@@ -273,14 +292,14 @@ fn impl_workflow(s: ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenSt
         impl<State> ::flowstate::WorkflowState<'static, #result_type> for #ident<State>
         where
             State: ::flowstate::State,
-            #ident<State>: #workflow_state_trait_ident
+            #ident<State>: #state_trait_ident
         {
             fn name(&self) -> String {
                 self.state_name()
             }
 
             fn next(self: Box<Self>) -> ::flowstate::Transition<'static, #result_type> {
-                #workflow_state_trait_ident::next(self)
+                #state_trait_ident::next(self)
             }
         }
     })

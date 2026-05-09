@@ -1,7 +1,10 @@
 use flowstate::prelude::*;
 
 #[derive(Workflow)]
-#[flowstate(result = WorkflowResult)]
+#[flowstate(
+    result = WorkflowResult,
+    state_trait = BasicWorkflowState,
+)]
 struct BasicWorkflow<State> {
     #[state]
     _state: State,

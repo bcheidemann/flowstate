@@ -5,7 +5,10 @@ struct WorkflowContext {
 }
 
 #[derive(Workflow)]
-#[flowstate(result = String)]
+#[flowstate(
+    result = String,
+    state_trait = WorkflowWithContextState,
+)]
 struct WorkflowWithContext<State> {
     #[state]
     _state: State,

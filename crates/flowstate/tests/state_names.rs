@@ -3,7 +3,10 @@ use std::any::type_name;
 use flowstate::prelude::*;
 
 #[derive(Workflow)]
-#[flowstate(result = MyWorkflowResult)]
+#[flowstate(
+    result = MyWorkflowResult,
+    state_trait = MyWorkflowState,
+)]
 struct MyWorkflow<State> {
     #[state]
     state: State,

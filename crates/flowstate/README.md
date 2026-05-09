@@ -24,7 +24,10 @@ The following is an example of a very basic workflow.
 use flowstate::prelude::*;
 
 #[derive(Workflow)]
-#[flowstate(result = WorkflowResult)]
+#[flowstate(
+    result = WorkflowResult,
+    state_trait = BasicWorkflowState,
+)]
 struct BasicWorkflow<State> {
     #[state]
     _state: State,
@@ -79,7 +82,10 @@ macros, but it requires a little more boilerplate.
 
 ```rs
 #[derive(Workflow)]
-#[flowstate(result = MyWorkflowResult)]
+#[flowstate(
+    result = MyWorkflowResult,
+    state_trait = MyWorkflowState,
+)]
 struct MyWorkflow<State> {
     #[state]
     _state: State,
@@ -87,10 +93,17 @@ struct MyWorkflow<State> {
 }
 ```
 
-The `#[flowstate(result = MyWorkflowResult)]` attribute defines the result type.
-This is the type that is returned on completion of the workflow. If your
+The `#[flowstate(..)]` attribute defines the result type, and the identifier
+for the workflow state trait.
+
+The result type, is the type returned on completion of the workflow. If your
 workflow has multiple terminal states, this should be an enum representing each
 of those terminal states.
+
+The `state_trait`, if specified, causes a trait to be generated, which should be
+implemented by each of the workflow states. This is optional, and we could also
+forgo generating this trait, and instead implement `flowstate::WorkflowState`
+for each of our states.
 
 The `#[state]` attribute lets Typestate know which field stores your state.
 

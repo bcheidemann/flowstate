@@ -46,7 +46,10 @@ impl DiskDrive {
 }
 
 #[derive(Workflow)]
-#[flowstate(result = EjectDiskResult)]
+#[flowstate(
+    result = EjectDiskResult,
+    state_trait = EjectDiskWorkflowState,
+)]
 struct EjectDiskWorkflow<State> {
     #[state]
     _state: State,
