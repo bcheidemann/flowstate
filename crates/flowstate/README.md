@@ -77,8 +77,8 @@ The prelude brings all the essential types into scope.
 use flowstate::prelude::*;
 ```
 
-Next, derive the `Workflow` trait. Flowstate can be [used without procedural](tests/basic_workflow_manual_impls.rs)
-macros, but it requires a little more boilerplate.
+Next, derive the `Workflow` trait. Flowstate can be [used without procedural macros](tests/basic_workflow_manual_impls.rs),
+but it requires a little more boilerplate.
 
 ```rs
 #[derive(Workflow)]
