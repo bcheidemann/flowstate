@@ -72,16 +72,17 @@ impl<'workflow, State> MyWorkflow<'workflow, State> {
     }
 }
 
-struct StateA;
+struct StateA<'a>(&'a str);
 
-impl State for StateA {
+impl State for StateA<'_> {
     fn name(&self) -> String {
         type_name::<StateA>().to_string()
     }
 }
 
-impl<'workflow> MyWorkflowState<'workflow> for MyWorkflow<'workflow, StateA> {
+impl<'workflow> MyWorkflowState<'workflow> for MyWorkflow<'workflow, StateA<'workflow>> {
     fn next(mut self: Box<Self>) -> Transition<'workflow, WorkflowResult> {
+        self.message.push_str(self.state.0);
         self.message.push_str(self.my_str);
 
         self.transition(StateB)
@@ -113,11 +114,11 @@ struct WorkflowResult {
 #[test]
 fn test_basic_workflow_manual_impls() {
     let workflow = MyWorkflow::new(
-        StateA,
-        "hello ",
-        StrContainer { my_str: "world" },
+        StateA("Hello "),
+        "world",
+        StrContainer { my_str: "!" },
         String::new(),
     );
     let result = workflow.run();
-    assert_eq!(result.message, "hello world");
+    assert_eq!(result.message, "Hello world!");
 }
