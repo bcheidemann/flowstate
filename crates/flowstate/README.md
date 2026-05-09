@@ -74,7 +74,7 @@ The prelude brings all the essential types into scope.
 use flowstate::prelude::*;
 ```
 
-Next, derive the `Workflow` trait. Flowstate can be [used without procedural](crates/flowstate/tests/basic_workflow_manual_impls.rs)
+Next, derive the `Workflow` trait. Flowstate can be [used without procedural](tests/basic_workflow_manual_impls.rs)
 macros, but it requires a little more boilerplate.
 
 ```rs
@@ -219,5 +219,5 @@ struct MyWorkflow<'workflow, State> {
 ```
 
 The derive macro does not currently support this pattern (though it should do
-soon). For now, you can refer to [crates/flowstate/tests/workflow_with_lifetime_generics_manual_impls.rs](crates/flowstate/tests/workflow_with_lifetime_generics_manual_impls.rs)
+soon). For now, you can refer to [tests/workflow_with_lifetime_generics_manual_impls.rs](tests/workflow_with_lifetime_generics_manual_impls.rs)
 for more details.
