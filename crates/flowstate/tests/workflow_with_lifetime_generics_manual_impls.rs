@@ -75,17 +75,17 @@ impl<'workflow, State> MyWorkflow<'workflow, State> {
     }
 }
 
-struct StateA<'a>(&'a str);
+#[derive(State)]
+struct StateA<'a, const N: usize, T>(&'a T)
+where
+    T: AsRef<str>;
 
-impl State for StateA<'_> {
-    fn name(&self) -> String {
-        type_name::<StateA>().to_string()
-    }
-}
-
-impl<'workflow> MyWorkflowState<'workflow> for MyWorkflow<'workflow, StateA<'workflow>> {
+impl<'workflow, T> MyWorkflowState<'workflow> for MyWorkflow<'workflow, StateA<'workflow, 0, T>>
+where
+    T: AsRef<str>,
+{
     fn next(mut self: Box<Self>) -> Transition<'workflow, WorkflowResult> {
-        self.message.push_str(self.state.0);
+        self.message.push_str(self.state.0.as_ref());
         self.message.push_str(self.my_str);
 
         self.transition(StateB)
@@ -116,8 +116,9 @@ struct WorkflowResult {
 
 #[test]
 fn test_basic_workflow_manual_impls() {
+    let message = "Hello ".to_string();
     let workflow = MyWorkflow::new(
-        StateA("Hello "),
+        StateA(&message),
         "world",
         StrContainer { my_str: "!" },
         String::new(),
