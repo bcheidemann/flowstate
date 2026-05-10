@@ -75,10 +75,18 @@ impl<'workflow, State> MyWorkflow<'workflow, State> {
     }
 }
 
-#[derive(State)]
 struct StateA<'a, const N: usize, T>(&'a T)
 where
     T: AsRef<str>;
+
+impl<'a, const N: usize, T> State for StateA<'a, N, T>
+where
+    T: AsRef<str>,
+{
+    fn name(&self) -> String {
+        type_name::<StateA<'a, N, T>>().to_string()
+    }
+}
 
 impl<'workflow, T> MyWorkflowState<'workflow> for MyWorkflow<'workflow, StateA<'workflow, 0, T>>
 where
