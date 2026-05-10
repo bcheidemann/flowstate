@@ -90,8 +90,8 @@ flowstate_derive_err!(
     )
 );
 flowstate_derive_err!(
-    UnsupportedGenericLifetimeParameter,
-    "Generic lifetime parameters are not currently supported for workflows"
+    ExtraGenericLifetimeParameter,
+    "Workflows currently only support one generic lifetime parameter"
 );
 flowstate_derive_err!(
     UnsupportedGenericConstParameter,
@@ -108,6 +108,10 @@ flowstate_derive_err!(
 flowstate_derive_err!(
     UnsupportedBoundsOnGenericTypeParameterForState,
     "Type parameter bounds on the state parameter are not currently supported"
+);
+flowstate_derive_err!(
+    UnsupportedBoundsOnGenericLifetimeParameterForWorkflow,
+    "Lifetime parameter bounds are not currently supported for workflows"
 );
 flowstate_derive_err!(
     UnsupportedGenericWhereClause,

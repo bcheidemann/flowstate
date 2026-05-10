@@ -1,40 +1,43 @@
 mod attr;
 
 use quote::quote;
-use syn::{DeriveInput, Fields, FieldsNamed, Ident, Type, TypeParam};
+use syn::{DeriveInput, Fields, FieldsNamed, Ident, LifetimeParam, Type, TypeParam};
 
 use crate::{
     derive::workflow::attr::{FlowstateAttrArgs, StateAttrArgs},
     err::{
-        DuplicateStateAttribute, InvalidStateFieldType, MissingFlowstateAttributeOnWorkflow,
-        MissingGenericTypeParameterForState, MissingStateAttribute, UnexpectedUnnamedField,
-        UnsupportedAdditionalGenericTypeParameters,
+        DuplicateStateAttribute, ExtraGenericLifetimeParameter, InvalidStateFieldType,
+        MissingFlowstateAttributeOnWorkflow, MissingGenericTypeParameterForState,
+        MissingStateAttribute, UnexpectedUnnamedField, UnsupportedAdditionalGenericTypeParameters,
+        UnsupportedBoundsOnGenericLifetimeParameterForWorkflow,
         UnsupportedBoundsOnGenericTypeParameterForState, UnsupportedEnumOrUnion,
-        UnsupportedGenericConstParameter, UnsupportedGenericLifetimeParameter,
-        UnsupportedGenericWhereClause, UnsupportedTupleStruct, UnsupportedUnitStruct,
+        UnsupportedGenericConstParameter, UnsupportedGenericWhereClause, UnsupportedTupleStruct,
+        UnsupportedUnitStruct,
     },
 };
 
 pub fn derive_workflow_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let s = validate_input(&input)?;
 
-    impl_workflow(&s)
+    generate_impls(&s)
 }
 
 struct ValidatedWorkflowStruct<'s> {
     ident: &'s Ident,
     args: FlowstateAttrArgs,
+    generics: ValidatedStructGenerics<'s>,
     fields: ValidatedStructFields<'s>,
 }
 
 fn validate_input(input: &DeriveInput) -> syn::Result<ValidatedWorkflowStruct<'_>> {
     let args = validate_flowstate_attr(input)?;
-    let state_param = validate_state_type_param(input)?;
-    let fields = validate_struct(input, state_param)?;
+    let generics = validate_generics(input)?;
+    let fields = validate_struct(input, &generics)?;
 
     Ok(ValidatedWorkflowStruct {
         ident: &input.ident,
         args,
+        generics,
         fields,
     })
 }
@@ -47,18 +50,55 @@ fn validate_flowstate_attr(input: &DeriveInput) -> syn::Result<FlowstateAttrArgs
     attr.parse_args()
 }
 
-fn validate_state_type_param(input: &DeriveInput) -> syn::Result<&TypeParam> {
-    if let Some(lifetime) = input.generics.lifetimes().next() {
-        return Err(UnsupportedGenericLifetimeParameter::at(lifetime).into());
+struct ValidatedStructGenerics<'s> {
+    workflow_lifetime_param: Option<&'s LifetimeParam>,
+    state_type_param: &'s TypeParam,
+}
+
+fn validate_generics(input: &DeriveInput) -> syn::Result<ValidatedStructGenerics<'_>> {
+    let workflow_lifetime_param = validate_workflow_lifetime_generic(input)?;
+    validate_generic_const_params(input)?;
+    let state_type_param = validate_state_type_generic(input)?;
+    validate_where_clause(input)?;
+
+    Ok(ValidatedStructGenerics {
+        workflow_lifetime_param,
+        state_type_param,
+    })
+}
+
+fn validate_workflow_lifetime_generic(
+    input: &DeriveInput,
+) -> syn::Result<Option<&'_ LifetimeParam>> {
+    let mut lifetime_params = input.generics.lifetimes();
+
+    let Some(workflow_lifetime) = lifetime_params.next() else {
+        return Ok(None);
+    };
+
+    if let Some(extra_lifetime_param) = lifetime_params.next() {
+        return Err(ExtraGenericLifetimeParameter::at(extra_lifetime_param).into());
     }
 
+    if let Some(bounds) = workflow_lifetime.bounds.first() {
+        return Err(UnsupportedBoundsOnGenericLifetimeParameterForWorkflow::at(bounds).into());
+    }
+
+    Ok(Some(workflow_lifetime))
+}
+
+fn validate_generic_const_params(input: &DeriveInput) -> syn::Result<()> {
     if let Some(const_param) = input.generics.const_params().next() {
         return Err(UnsupportedGenericConstParameter::at(const_param).into());
     }
 
+    Ok(())
+}
+
+fn validate_state_type_generic(input: &DeriveInput) -> syn::Result<&'_ TypeParam> {
     let mut type_params = input.generics.type_params();
 
-    let Some(state_param) = type_params.next() else {
+    let Some(state_type_param) = type_params.next() else {
         return Err(MissingGenericTypeParameterForState::at(&input.ident).into());
     };
 
@@ -66,20 +106,24 @@ fn validate_state_type_param(input: &DeriveInput) -> syn::Result<&TypeParam> {
         return Err(UnsupportedAdditionalGenericTypeParameters::at(&extra_type_param).into());
     }
 
-    if let Some(bound) = state_param.bounds.first() {
+    if let Some(bound) = state_type_param.bounds.first() {
         return Err(UnsupportedBoundsOnGenericTypeParameterForState::at(bound).into());
     }
 
+    Ok(state_type_param)
+}
+
+fn validate_where_clause(input: &DeriveInput) -> syn::Result<()> {
     if let Some(where_clause) = &input.generics.where_clause {
         return Err(UnsupportedGenericWhereClause::at(where_clause).into());
     }
 
-    Ok(state_param)
+    Ok(())
 }
 
 fn validate_struct<'input>(
     input: &'input DeriveInput,
-    state_param: &TypeParam,
+    validated_generics: &ValidatedStructGenerics<'_>,
 ) -> syn::Result<ValidatedStructFields<'input>> {
     let data = match &input.data {
         syn::Data::Struct(data) => data,
@@ -89,7 +133,7 @@ fn validate_struct<'input>(
     };
 
     match &data.fields {
-        Fields::Named(fields) => validate_struct_fields(fields, state_param),
+        Fields::Named(fields) => validate_struct_fields(fields, validated_generics),
         Fields::Unnamed(_) => Err(UnsupportedTupleStruct::at(&data.fields).into()),
         Fields::Unit => Err(UnsupportedUnitStruct::at(&data.fields).into()),
     }
@@ -107,7 +151,7 @@ struct ValidatedStructFields<'a> {
 
 fn validate_struct_fields<'a>(
     fields: &'a FieldsNamed,
-    state_param: &TypeParam,
+    validated_generics: &ValidatedStructGenerics<'_>,
 ) -> syn::Result<ValidatedStructFields<'a>> {
     let mut state = None;
     let mut rest = Vec::new();
@@ -135,19 +179,28 @@ fn validate_struct_fields<'a>(
 
             let Type::Path(type_path) = &field.ty else {
                 return Err(InvalidStateFieldType::at(&field.ty)
-                    .with(ident.to_string(), state_param.ident.to_string())
+                    .with(
+                        ident.to_string(),
+                        validated_generics.state_type_param.ident.to_string(),
+                    )
                     .into());
             };
 
             let Some(state_ident) = type_path.path.get_ident() else {
                 return Err(InvalidStateFieldType::at(type_path)
-                    .with(ident.to_string(), state_param.ident.to_string())
+                    .with(
+                        ident.to_string(),
+                        validated_generics.state_type_param.ident.to_string(),
+                    )
                     .into());
             };
 
-            if *state_ident != state_param.ident {
+            if *state_ident != validated_generics.state_type_param.ident {
                 return Err(InvalidStateFieldType::at(type_path)
-                    .with(ident.to_string(), state_param.ident.to_string())
+                    .with(
+                        ident.to_string(),
+                        validated_generics.state_type_param.ident.to_string(),
+                    )
                     .into());
             }
 
@@ -170,24 +223,86 @@ fn validate_struct_fields<'a>(
     Ok(ValidatedStructFields { state, rest })
 }
 
-fn impl_workflow(s: &ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenStream> {
-    let ValidatedWorkflowStruct {
-        ident,
-        args: FlowstateAttrArgs { result_type, .. },
-        fields,
-    } = s;
-    let state_field_ident = fields.state.ident;
-    let rest_field_init_params = fields.rest.iter().map(|Field { ident, ty }| {
+fn generate_impls(s: &ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenStream> {
+    let constructor_impl = generate_constructor_impl(s);
+    let transition_helpers = generate_transition_helpers(s);
+    let workflow_impl = generate_workflow_impl(s);
+    let state_trait = generate_state_trait(s);
+
+    Ok(quote! {
+        #constructor_impl
+        #transition_helpers
+        #workflow_impl
+        #state_trait
+    })
+}
+
+fn generate_constructor_impl(s: &ValidatedWorkflowStruct) -> proc_macro2::TokenStream {
+    let ident = s.ident;
+    let state_generic_ident = &s.generics.state_type_param.ident;
+    let workflow_generics = match s.generics.workflow_lifetime_param {
+        Some(workflow_lifetime_param) => {
+            let workflow_lifetime = &workflow_lifetime_param.lifetime;
+            quote! {
+                #workflow_lifetime, #state_generic_ident
+            }
+        }
+        None => quote! { #state_generic_ident },
+    };
+    let state_field_ident = s.fields.state.ident;
+    let rest_field_init_params = s.fields.rest.iter().map(|Field { ident, ty }| {
         quote! {
             #ident: #ty
         }
     });
-    let rest_field_idents = fields.rest.iter().map(|Field { ident, .. }| {
+    let rest_field_idents = s.fields.rest.iter().map(|Field { ident, .. }| {
         quote! {
             #ident
         }
     });
-    let rest_field_transition_assignments: Vec<_> = fields
+
+    quote! {
+        impl<#workflow_generics> #ident<#workflow_generics> {
+            fn new(#state_field_ident: #state_generic_ident, #(#rest_field_init_params,)*) -> Self {
+                Self {
+                    #state_field_ident,
+                    #(#rest_field_idents,)*
+                }
+            }
+        }
+    }
+}
+
+fn generate_transition_helpers(s: &ValidatedWorkflowStruct) -> proc_macro2::TokenStream {
+    let ident = s.ident;
+    let state_generic_ident = &s.generics.state_type_param.ident;
+    let workflow_lifetime = match &s.generics.workflow_lifetime_param {
+        Some(LifetimeParam { lifetime, .. }) => quote! { #lifetime },
+        None => quote! { 'static },
+    };
+    let workflow_generics = match s.generics.workflow_lifetime_param {
+        Some(workflow_lifetime_param) => {
+            let workflow_lifetime = &workflow_lifetime_param.lifetime;
+            quote! {
+                #workflow_lifetime, #state_generic_ident
+            }
+        }
+        None => quote! { #state_generic_ident },
+    };
+    let next_state_ident = quote! { NextState };
+    let next_state_workflow_generics = match s.generics.workflow_lifetime_param {
+        Some(workflow_lifetime_param) => {
+            let workflow_lifetime = &workflow_lifetime_param.lifetime;
+            quote! {
+                #workflow_lifetime, #next_state_ident
+            }
+        }
+        None => quote! { #next_state_ident },
+    };
+    let state_field_ident = &s.fields.state.ident;
+    let result_type = &s.args.result_type;
+    let rest_field_transition_assignments: Vec<_> = s
+        .fields
         .rest
         .iter()
         .map(|Field { ident, .. }| {
@@ -196,33 +311,16 @@ fn impl_workflow(s: &ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenS
             }
         })
         .collect();
-    let state_trait = generate_state_trait(s);
 
-    Ok(quote! {
-        impl<State> #ident<State> {
-            fn new(#state_field_ident: State, #(#rest_field_init_params,)*) -> Self {
-                Self {
-                    #state_field_ident,
-                    #(#rest_field_idents,)*
-                }
-            }
-        }
-
-        impl<State: flowstate::State> ::flowstate::Workflow for #ident<State>
+    quote! {
+        impl<#workflow_generics> #ident<#workflow_generics>
         {
-            fn state(&self) -> &dyn ::flowstate::State {
-                &self.#state_field_ident
-            }
-        }
-
-        impl<State> #ident<State>
-        {
-            fn transition<NextState>(
+            fn transition<#next_state_ident>(
                 self,
-                next_state: NextState,
-            ) -> ::flowstate::Transition<'static, #result_type>
+                next_state: #next_state_ident,
+            ) -> ::flowstate::Transition<#workflow_lifetime, #result_type>
             where
-                #ident<NextState>: ::flowstate::WorkflowState<'static, #result_type> + 'static,
+                #ident<#next_state_workflow_generics>: ::flowstate::WorkflowState<#workflow_lifetime, #result_type> + #workflow_lifetime,
             {
                 ::std::ops::ControlFlow::Continue(Box::new(#ident {
                     #state_field_ident: next_state,
@@ -230,13 +328,13 @@ fn impl_workflow(s: &ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenS
                 }))
             }
 
-            fn transition_with<NextState, Fn>(
+            fn transition_with<#next_state_ident, Fn>(
                 self,
                 map_fn: Fn,
-            ) -> ::flowstate::Transition<'static, #result_type>
+            ) -> ::flowstate::Transition<#workflow_lifetime, #result_type>
             where
-                #ident<NextState>: ::flowstate::WorkflowState<'static, #result_type> + 'static,
-                Fn: FnOnce(State) -> NextState,
+                #ident<#next_state_workflow_generics>: ::flowstate::WorkflowState<#workflow_lifetime, #result_type> + #workflow_lifetime,
+                Fn: FnOnce(#state_generic_ident) -> #next_state_ident,
             {
                 Transition::Continue(Box::new(#ident {
                     #state_field_ident: map_fn(self.#state_field_ident),
@@ -244,24 +342,63 @@ fn impl_workflow(s: &ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenS
                 }))
             }
         }
+    }
+}
 
-        #state_trait
-    })
+fn generate_workflow_impl(s: &ValidatedWorkflowStruct) -> proc_macro2::TokenStream {
+    let ident = s.ident;
+    let state_generic_ident = &s.generics.state_type_param.ident;
+    let state_field_ident = &s.fields.state.ident;
+    let workflow_generics = match s.generics.workflow_lifetime_param {
+        Some(workflow_lifetime_param) => {
+            let workflow_lifetime = &workflow_lifetime_param.lifetime;
+            quote! {
+                #workflow_lifetime, #state_generic_ident
+            }
+        }
+        None => quote! { #state_generic_ident },
+    };
+
+    quote! {
+        impl<#workflow_generics> ::flowstate::Workflow for #ident<#workflow_generics>
+        where
+            #state_generic_ident: ::flowstate::State,
+        {
+            fn state(&self) -> &dyn ::flowstate::State {
+                &self.#state_field_ident
+            }
+        }
+    }
 }
 
 fn generate_state_trait(s: &ValidatedWorkflowStruct) -> Option<proc_macro2::TokenStream> {
-    let ValidatedWorkflowStruct {
-        ident,
-        args:
-            FlowstateAttrArgs {
-                result_type,
-                state_trait_ident: Some(state_trait_ident),
-            },
-        ..
-    } = &s
-    else {
+    let ident = s.ident;
+    let state_generic_ident = &s.generics.state_type_param.ident;
+    let result_type = &s.args.result_type;
+    let Some(state_trait_ident) = &s.args.state_trait_ident else {
         return None;
     };
+    let workflow_lifetime = match &s.generics.workflow_lifetime_param {
+        Some(LifetimeParam { lifetime, .. }) => quote! { #lifetime },
+        None => quote! { 'static },
+    };
+    let workflow_generics = match s.generics.workflow_lifetime_param {
+        Some(workflow_lifetime_param) => {
+            let workflow_lifetime = &workflow_lifetime_param.lifetime;
+            quote! {
+                #workflow_lifetime, #state_generic_ident
+            }
+        }
+        None => quote! { #state_generic_ident },
+    };
+    let trait_generics = s
+        .generics
+        .workflow_lifetime_param
+        .as_ref()
+        .map(|LifetimeParam { lifetime, .. }| quote! { #lifetime });
+    let trait_generics_bracketed = trait_generics
+        .as_ref()
+        .map(|trait_generics| quote! { <#trait_generics> });
 
     Some(quote! {
         /// Each implementation represents the workflow in a specific state and
@@ -281,24 +418,24 @@ fn generate_state_trait(s: &ValidatedWorkflowStruct) -> Option<proc_macro2::Toke
         /// [`self.finish_with(|workflow| result)`](flowstate::Workflow::finish_with)
         /// to terminate the workflow with a result.
         ///
-        trait #state_trait_ident: ::flowstate::Workflow {
+        trait #state_trait_ident #trait_generics_bracketed: ::flowstate::Workflow {
             fn state_name(&self) -> String {
                 self.state().name()
             }
 
-            fn next(self: Box<Self>) -> ::flowstate::Transition<'static, #result_type>;
+            fn next(self: Box<Self>) -> ::flowstate::Transition<#workflow_lifetime, #result_type>;
         }
 
-        impl<State> ::flowstate::WorkflowState<'static, #result_type> for #ident<State>
+        impl<#workflow_generics> ::flowstate::WorkflowState<#workflow_lifetime, #result_type> for #ident<#workflow_generics>
         where
-            State: ::flowstate::State,
-            #ident<State>: #state_trait_ident
+            #state_generic_ident: ::flowstate::State,
+            #ident<#workflow_generics>: #state_trait_ident #trait_generics_bracketed
         {
             fn name(&self) -> String {
                 self.state_name()
             }
 
-            fn next(self: Box<Self>) -> ::flowstate::Transition<'static, #result_type> {
+            fn next(self: Box<Self>) -> ::flowstate::Transition<#workflow_lifetime, #result_type> {
                 #state_trait_ident::next(self)
             }
         }

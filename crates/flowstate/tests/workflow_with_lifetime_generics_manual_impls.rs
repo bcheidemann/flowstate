@@ -30,7 +30,10 @@ impl<'a, State> MyWorkflow<'a, State> {
     }
 }
 
-impl<'a, State: flowstate::State> Workflow for MyWorkflow<'a, State> {
+impl<'a, State> Workflow for MyWorkflow<'a, State>
+where
+    State: flowstate::State,
+{
     fn state(&self) -> &dyn flowstate::State {
         &self.state
     }
