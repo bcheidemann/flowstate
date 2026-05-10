@@ -283,5 +283,5 @@ generally advisable to avoid adding trait bounds on a structs generic types.
 See [this Stack Overflow answer](https://stackoverflow.com/questions/49229332/should-trait-bounds-be-duplicated-in-struct-and-impl#answer-66369912)
 for reference.
 
-Check out [tests/workflow_with_lifetime_generics.rs](crates/flowstate/tests/workflow_with_lifetime_generics.rs)
+Check out [tests/workflow_with_lifetime_generics.rs](tests/workflow_with_lifetime_generics.rs)
 for a working example.
