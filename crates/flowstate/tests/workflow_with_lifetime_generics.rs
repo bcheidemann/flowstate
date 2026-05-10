@@ -23,7 +23,8 @@ struct StateA<'a, const N: usize, T>(&'a T)
 where
     T: AsRef<str>;
 
-impl<'workflow, T> MyWorkflowState<'workflow> for MyWorkflow<'workflow, StateA<'workflow, 0, T>>
+impl<'workflow, const N: usize, T> MyWorkflowState<'workflow>
+    for MyWorkflow<'workflow, StateA<'workflow, N, T>>
 where
     T: AsRef<str>,
 {
@@ -31,14 +32,16 @@ where
         self.message.push_str(self.state.0.as_ref());
         self.message.push_str(self.my_str);
 
-        self.transition(StateB)
+        self.transition_with(|state| StateB::<N, _>(state.0))
     }
 }
 
 #[derive(State)]
-struct StateB;
+struct StateB<'a, const N: usize, T>(#[allow(unused)] &'a T);
 
-impl<'workflow> MyWorkflowState<'workflow> for MyWorkflow<'workflow, StateB> {
+impl<'workflow, const N: usize, T> MyWorkflowState<'workflow>
+    for MyWorkflow<'workflow, StateB<'workflow, N, T>>
+{
     fn next(mut self: Box<Self>) -> Transition<'workflow, WorkflowResult> {
         self.message.push_str(self.my_str_container.my_str);
 
@@ -56,7 +59,7 @@ struct WorkflowResult {
 fn test_basic_workflow_manual_impls() {
     let message = "Hello ".to_string();
     let workflow = MyWorkflow::new(
-        StateA(&message),
+        StateA::<0, _>(&message),
         "world",
         StrContainer { my_str: "!" },
         String::new(),
