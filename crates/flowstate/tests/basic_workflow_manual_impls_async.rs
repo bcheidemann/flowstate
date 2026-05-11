@@ -85,7 +85,7 @@ impl BasicWorkflowState for BasicWorkflow<StateB> {
 struct WorkflowResult;
 
 #[tokio::test]
-async fn test_basic_workflow_manual_impls() {
+async fn test_basic_workflow_manual_impls_async() {
     let workflow = BasicWorkflow::init();
     let result = workflow.run().await;
     assert_eq!(result, WorkflowResult);

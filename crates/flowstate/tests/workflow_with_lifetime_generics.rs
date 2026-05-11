@@ -56,7 +56,7 @@ struct WorkflowResult {
 }
 
 #[test]
-fn test_basic_workflow_manual_impls() {
+fn test_workflow_with_lifetime_generics() {
     let message = "Hello ".to_string();
     let workflow = MyWorkflow::new(
         StateA::<0, _>(&message),

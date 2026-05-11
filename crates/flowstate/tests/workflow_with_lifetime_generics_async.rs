@@ -62,7 +62,7 @@ struct WorkflowResult {
 }
 
 #[tokio::test]
-async fn test_basic_workflow_manual_impls() {
+async fn test_workflow_with_lifetime_generics_async() {
     let message = "Hello ".to_string();
     let workflow = MyWorkflow::new(
         StateA::<0, _>(&message),
