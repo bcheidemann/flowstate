@@ -10,6 +10,8 @@ typically responsible for driving the state transitions. In contrast, each state
 in a Flowstate workflow is responsible for transitioning to the next state. This
 allows workflows to be self-executing.
 
+Flowstate has zero runtime dependencies.
+
 ## Basic Usage
 
 The following is an example of a very basic workflow.
