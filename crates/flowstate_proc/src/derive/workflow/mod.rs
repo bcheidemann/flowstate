@@ -421,7 +421,7 @@ fn generate_state_trait(s: &ValidatedWorkflowStruct) -> Option<proc_macro2::Toke
     };
     let state_trait_attrs = s.args.is_async.then(|| {
         quote! {
-            #[::async_trait::async_trait]
+            #[::flowstate::async_state]
         }
     });
     let state_generic_bounds = if s.args.is_async {
