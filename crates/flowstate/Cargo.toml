@@ -9,8 +9,13 @@ repository = "https://github.com/bcheidemann/flowstate"
 readme = "README.md"
 
 [features]
+async = ["dep:async-trait"]
 macros = ["dep:flowstate_proc"]
-default = ["macros"]
+default = ["async", "macros"]
 
 [dependencies]
+async-trait = { version = "0.1.89", optional = true }
 flowstate_proc = { version = "0.6.1", path = "../flowstate_proc", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }

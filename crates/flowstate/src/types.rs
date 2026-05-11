@@ -1,6 +1,6 @@
 use std::ops::ControlFlow;
 
-use crate::WorkflowState;
+use crate::{AsyncWorkflowState, WorkflowState};
 
 /// Represents a transition to the next workflow state.
 pub type Transition<'workflow, WorkflowResult> =
@@ -8,3 +8,12 @@ pub type Transition<'workflow, WorkflowResult> =
 
 /// Shorthand for [`Transition<'static, WorkflowResult>`](Transition).
 pub type StaticTransition<WorkflowResult> = Transition<'static, WorkflowResult>;
+
+/// Represents an async transition to the next workflow state.
+#[cfg(feature = "async")]
+pub type AsyncTransition<'workflow, WorkflowResult> =
+    ControlFlow<WorkflowResult, Box<dyn AsyncWorkflowState<'workflow, WorkflowResult> + 'workflow>>;
+
+/// Shorthand for [`AsyncTransition<'static, WorkflowResult>`](Transition).
+#[cfg(feature = "async")]
+pub type AsyncStaticTransition<WorkflowResult> = AsyncTransition<'static, WorkflowResult>;
