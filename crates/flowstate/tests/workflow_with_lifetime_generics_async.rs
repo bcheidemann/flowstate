@@ -7,6 +7,7 @@ struct StrContainer<'a> {
 
 #[derive(Workflow)]
 #[flowstate(
+    is_async = true,
     result = WorkflowResult,
     state_trait = MyWorkflowState,
 )]
@@ -23,12 +24,14 @@ struct StateA<'a, const N: usize, T>(&'a T)
 where
     T: AsRef<str>;
 
+#[async_state]
 impl<'workflow, const N: usize, T> MyWorkflowState<'workflow>
     for MyWorkflow<'workflow, StateA<'workflow, N, T>>
 where
     T: AsRef<str>,
+    &'workflow T: Send,
 {
-    fn next(mut self: Box<Self>) -> Transition<'workflow, WorkflowResult> {
+    async fn next(mut self: Box<Self>) -> AsyncTransition<'workflow, WorkflowResult> {
         self.message.push_str(self.state.0.as_ref());
         self.message.push_str(self.my_str);
 
@@ -39,10 +42,13 @@ where
 #[derive(State)]
 struct StateB<'a, const N: usize, T>(#[allow(unused)] &'a T);
 
+#[async_state]
 impl<'workflow, const N: usize, T> MyWorkflowState<'workflow>
     for MyWorkflow<'workflow, StateB<'workflow, N, T>>
+where
+    StateB<'workflow, N, T>: Send,
 {
-    fn next(mut self: Box<Self>) -> Transition<'workflow, WorkflowResult> {
+    async fn next(mut self: Box<Self>) -> AsyncTransition<'workflow, WorkflowResult> {
         self.message.push_str(self.my_str_container.my_str);
 
         self.finish_with(|workflow| WorkflowResult {
@@ -55,8 +61,8 @@ struct WorkflowResult {
     message: String,
 }
 
-#[test]
-fn test_basic_workflow_manual_impls() {
+#[tokio::test]
+async fn test_basic_workflow_manual_impls() {
     let message = "Hello ".to_string();
     let workflow = MyWorkflow::new(
         StateA::<0, _>(&message),
@@ -64,6 +70,6 @@ fn test_basic_workflow_manual_impls() {
         StrContainer { my_str: "!" },
         String::new(),
     );
-    let result = workflow.run();
+    let result = workflow.run().await;
     assert_eq!(result.message, "Hello world!");
 }

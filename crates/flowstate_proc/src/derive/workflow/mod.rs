@@ -311,6 +311,16 @@ fn generate_transition_helpers(s: &ValidatedWorkflowStruct) -> proc_macro2::Toke
             }
         })
         .collect();
+    let workflow_state_trait = if s.args.is_async {
+        quote! { ::flowstate::AsyncWorkflowState }
+    } else {
+        quote! { ::flowstate::WorkflowState }
+    };
+    let transition_type = if s.args.is_async {
+        quote! { ::flowstate::AsyncTransition }
+    } else {
+        quote! { ::flowstate::Transition }
+    };
 
     quote! {
         impl<#workflow_generics> #ident<#workflow_generics>
@@ -318,9 +328,9 @@ fn generate_transition_helpers(s: &ValidatedWorkflowStruct) -> proc_macro2::Toke
             fn transition<#next_state_ident>(
                 self,
                 next_state: #next_state_ident,
-            ) -> ::flowstate::Transition<#workflow_lifetime, #result_type>
+            ) -> #transition_type<#workflow_lifetime, #result_type>
             where
-                #ident<#next_state_workflow_generics>: ::flowstate::WorkflowState<#workflow_lifetime, #result_type> + #workflow_lifetime,
+                #ident<#next_state_workflow_generics>: #workflow_state_trait<#workflow_lifetime, #result_type> + #workflow_lifetime,
             {
                 ::std::ops::ControlFlow::Continue(Box::new(#ident {
                     #state_field_ident: next_state,
@@ -331,12 +341,12 @@ fn generate_transition_helpers(s: &ValidatedWorkflowStruct) -> proc_macro2::Toke
             fn transition_with<#next_state_ident, Fn>(
                 self,
                 map_fn: Fn,
-            ) -> ::flowstate::Transition<#workflow_lifetime, #result_type>
+            ) -> #transition_type<#workflow_lifetime, #result_type>
             where
-                #ident<#next_state_workflow_generics>: ::flowstate::WorkflowState<#workflow_lifetime, #result_type> + #workflow_lifetime,
+                #ident<#next_state_workflow_generics>: #workflow_state_trait<#workflow_lifetime, #result_type> + #workflow_lifetime,
                 Fn: FnOnce(#state_generic_ident) -> #next_state_ident,
             {
-                Transition::Continue(Box::new(#ident {
+                ::std::ops::ControlFlow::Continue(Box::new(#ident {
                     #state_field_ident: map_fn(self.#state_field_ident),
                     #(#rest_field_transition_assignments,)*
                 }))
@@ -399,6 +409,28 @@ fn generate_state_trait(s: &ValidatedWorkflowStruct) -> Option<proc_macro2::Toke
     let trait_generics_bracketed = trait_generics
         .as_ref()
         .map(|trait_generics| quote! { <#trait_generics> });
+    let workflow_state_trait = if s.args.is_async {
+        quote! { ::flowstate::AsyncWorkflowState }
+    } else {
+        quote! { ::flowstate::WorkflowState }
+    };
+    let transition_type = if s.args.is_async {
+        quote! { ::flowstate::AsyncTransition }
+    } else {
+        quote! { ::flowstate::Transition }
+    };
+    let state_trait_attrs = s.args.is_async.then(|| {
+        quote! {
+            #[::async_trait::async_trait]
+        }
+    });
+    let state_generic_bounds = if s.args.is_async {
+        quote! { ::flowstate::State + Send }
+    } else {
+        quote! { ::flowstate::State }
+    };
+    let async_modifier = s.args.is_async.then(|| quote! { async });
+    let await_operator = s.args.is_async.then(|| quote! { .await });
 
     Some(quote! {
         /// Each implementation represents the workflow in a specific state and
@@ -414,29 +446,31 @@ fn generate_state_trait(s: &ValidatedWorkflowStruct) -> Option<proc_macro2::Toke
         /// Return [`self.transition(next_state)`] to transition to the
         /// workflow to the next state.
         ///
-        /// Return [`self.finish(result)`](flowstate::Workflow::finish) or
-        /// [`self.finish_with(|workflow| result)`](flowstate::Workflow::finish_with)
+        /// Return [`self.finish(result)`](flowstate::WorkflowState::finish) or
+        /// [`self.finish_with(|workflow| result)`](flowstate::WorkflowState::finish_with)
         /// to terminate the workflow with a result.
         ///
+        #state_trait_attrs
         trait #state_trait_ident #trait_generics_bracketed: ::flowstate::Workflow {
             fn state_name(&self) -> String {
                 self.state().name()
             }
 
-            fn next(self: Box<Self>) -> ::flowstate::Transition<#workflow_lifetime, #result_type>;
+            #async_modifier fn next(self: Box<Self>) -> #transition_type<#workflow_lifetime, #result_type>;
         }
 
-        impl<#workflow_generics> ::flowstate::WorkflowState<#workflow_lifetime, #result_type> for #ident<#workflow_generics>
+        #state_trait_attrs
+        impl<#workflow_generics> #workflow_state_trait<#workflow_lifetime, #result_type> for #ident<#workflow_generics>
         where
-            #state_generic_ident: ::flowstate::State,
+            #state_generic_ident: #state_generic_bounds,
             #ident<#workflow_generics>: #state_trait_ident #trait_generics_bracketed
         {
             fn name(&self) -> String {
                 self.state_name()
             }
 
-            fn next(self: Box<Self>) -> ::flowstate::Transition<#workflow_lifetime, #result_type> {
-                #state_trait_ident::next(self)
+            #async_modifier fn next(self: Box<Self>) -> #transition_type<#workflow_lifetime, #result_type> {
+                #state_trait_ident::next(self) #await_operator
             }
         }
     })
