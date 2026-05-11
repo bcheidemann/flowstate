@@ -64,6 +64,11 @@ fn test_basic_workflow() {
 
 ## Getting started
 
+_This section deals with synchronous workflows. If you're looking for
+documentation on async workflows, check out the section on "async workflows"
+under "advanced topics". It is still recommended to read this section first, as
+it gives an overview of some important concepts._
+
 Add `flowstate` to your `Cargo.toml`.
 
 ```toml
