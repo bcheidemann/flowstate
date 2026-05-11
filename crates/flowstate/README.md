@@ -285,3 +285,47 @@ for reference.
 
 Check out [tests/workflow_with_lifetime_generics.rs](tests/workflow_with_lifetime_generics.rs)
 for a working example.
+
+### Async workflows
+
+Workflows can be made asynchronous by setting `is_async` (shorthand for
+`is_async = true`). Note that this requires the `async` Cargo feature to be
+enabled.
+
+```rs
+#[derive(Workflow)]
+#[flowstate(
+    is_async,
+    result = WorkflowResult,
+    state_trait = BasicWorkflowState,
+)]
+struct BasicWorkflow<State> {
+    #[state]
+    _state: State,
+}
+```
+
+The implementation for workflow states remains largely the same.
+
+```rs
+#[derive(State)]
+struct StateA;
+
+#[async_state]
+impl BasicWorkflowState for BasicWorkflow<StateA> {
+    async fn next(self: Box<Self>) -> AsyncStaticTransition<WorkflowResult> {
+        self.transition(StateB)
+    }
+}
+```
+
+However, note the following differences from the synchronous implementation:
+
+1. The `impl` block has been annotated with the `#[async_state]` attribute. This is a re-export of the `async_trait` macro, and is exported by the Flowstate prelude. It is preferred to use `flowstate::async_state` over `async_trait::async_trait` directly, in case the implementation is replaced in future versions.
+2. The `next` function is now `async`.
+3. The `next` function returns `AsyncStaticTransition` instead of `StaticTransition`.
+
+For an example of an async workflow with a generic lifetime parameter, and
+generic states, see [tests/workflow_with_lifetime_generics_async.rs](tests/workflow_with_lifetime_generics_async.rs).
+The implementation is similar, but requires some `Send` bounds to be added in
+key places.
