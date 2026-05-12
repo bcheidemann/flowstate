@@ -176,7 +176,7 @@ impl From<&span::Attributes<'_>> for SpanAttributes {
     fn from(value: &span::Attributes) -> Self {
         Self {
             metadata: value.metadata(),
-            fields: HashMapFieldCollector::collect_span(value),
+            fields: HashMapFieldCollector::collect_span_fields(value),
         }
     }
 }
@@ -184,12 +184,14 @@ impl From<&span::Attributes<'_>> for SpanAttributes {
 #[derive(Debug, Clone)]
 pub struct RecordedEvent {
     pub metadata: &'static Metadata<'static>,
+    pub fields: HashMap<String, String>,
 }
 
 impl From<&Event<'_>> for RecordedEvent {
     fn from(value: &Event<'_>) -> Self {
         Self {
             metadata: value.metadata(),
+            fields: HashMapFieldCollector::collect_event_fields(value),
         }
     }
 }

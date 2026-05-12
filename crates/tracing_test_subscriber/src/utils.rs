@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use tracing::{field::Visit, span};
+use tracing::{Event, field::Visit, span};
 
 #[derive(Default)]
 pub struct HashMapFieldCollector(HashMap<String, String>);
@@ -12,7 +12,13 @@ impl Visit for HashMapFieldCollector {
 }
 
 impl HashMapFieldCollector {
-    pub fn collect_span(span: &span::Attributes<'_>) -> HashMap<String, String> {
+    pub fn collect_span_fields(span: &span::Attributes<'_>) -> HashMap<String, String> {
+        let mut collector = Self::default();
+        span.record(&mut collector);
+        collector.into_fields()
+    }
+
+    pub fn collect_event_fields(span: &Event<'_>) -> HashMap<String, String> {
         let mut collector = Self::default();
         span.record(&mut collector);
         collector.into_fields()
