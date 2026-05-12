@@ -1,6 +1,8 @@
 use std::ops::ControlFlow;
 
-use crate::{AsyncWorkflowState, WorkflowState};
+#[cfg(feature = "async")]
+use crate::AsyncWorkflowState;
+use crate::WorkflowState;
 
 /// Represents a transition to the next workflow state.
 pub type Transition<'workflow, WorkflowResult> =

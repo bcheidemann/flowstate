@@ -1,6 +1,6 @@
-use crate::middleware::{
-    AsyncWorkflowMiddleware, WorkflowMetadata, WorkflowMiddleware, identity::IdentityMiddleware,
-};
+#[cfg(feature = "async")]
+use crate::middleware::AsyncWorkflowMiddleware;
+use crate::middleware::{WorkflowMetadata, WorkflowMiddleware, identity::IdentityMiddleware};
 
 pub struct MiddlewareStack<Inner, Outer> {
     inner: Inner,
@@ -31,6 +31,7 @@ where
     }
 }
 
+#[cfg(feature = "async")]
 impl<Inner, Outer> AsyncWorkflowMiddleware for MiddlewareStack<Inner, Outer>
 where
     Inner: AsyncWorkflowMiddleware,
@@ -73,7 +74,7 @@ impl<Stack> MiddlewareStackBuilder<Stack> {
     /// Adds a new layer to the middleware stack.
     ///
     /// Layers are executed in the order they are added.
-    pub fn layer<Middleware: AsyncWorkflowMiddleware>(
+    pub fn layer<Middleware>(
         self,
         middleware: Middleware,
     ) -> MiddlewareStackBuilder<MiddlewareStack<Middleware, Stack>> {

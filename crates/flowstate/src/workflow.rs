@@ -1,12 +1,10 @@
 use std::ops::ControlFlow;
 
-use async_trait::async_trait;
-
+#[cfg(feature = "async")]
+use crate::{AsyncTransition, middleware::AsyncWorkflowMiddleware};
 use crate::{
-    AsyncTransition, State, Transition,
-    middleware::{
-        AsyncWorkflowMiddleware, WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata,
-    },
+    State, Transition,
+    middleware::{WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata},
 };
 
 pub trait Workflow {
@@ -121,7 +119,7 @@ where
 /// the next state, while [`ControlFlow::Break`] terminates the workflow with a
 /// result.
 #[cfg(feature = "async")]
-#[async_trait]
+#[async_trait::async_trait]
 pub trait AsyncWorkflowState<'workflow, Result>: Workflow + Send {
     fn name(&self) -> String {
         self.state().name()
@@ -176,6 +174,7 @@ pub trait AsyncWorkflowState<'workflow, Result>: Workflow + Send {
     }
 }
 
+#[cfg(feature = "async")]
 async fn run_with_middleware_async<'workflow, Workflow, Middleware, Result>(
     initial_state: Workflow,
     middleware: Middleware,
@@ -194,6 +193,7 @@ where
     middleware.wrap_workflow(&metadata, run_workflow_fut).await
 }
 
+#[cfg(feature = "async")]
 async fn run_with_middleware_async_impl<'workflow, Workflow, Middleware, Result>(
     initial_workflow_state: Workflow,
     middleware: &Middleware,

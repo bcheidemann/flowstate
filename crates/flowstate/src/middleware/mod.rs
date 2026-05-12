@@ -31,6 +31,7 @@ pub trait WorkflowMiddleware {
     }
 }
 
+#[cfg(feature = "async")]
 pub trait AsyncWorkflowMiddleware {
     fn wrap_workflow<'workflow, Result: Send + 'workflow>(
         &self,
