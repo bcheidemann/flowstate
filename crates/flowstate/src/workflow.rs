@@ -4,7 +4,9 @@ use async_trait::async_trait;
 
 use crate::{
     AsyncTransition, State, Transition,
-    middleware::{AsyncWorkflowMiddleware, WorkflowMetadata, WorkflowStateMetadata},
+    middleware::{
+        AsyncWorkflowMiddleware, WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata,
+    },
 };
 
 pub trait Workflow {
@@ -48,6 +50,14 @@ pub trait WorkflowState<'workflow, Result>: Workflow {
         }
     }
 
+    fn run_with_middleware<Middleware>(self, middleware: Middleware) -> Result
+    where
+        Self: WorkflowState<'workflow, Result> + Sized,
+        Middleware: WorkflowMiddleware,
+    {
+        run_with_middleware(self, middleware)
+    }
+
     fn finish(self, result: Result) -> Transition<'workflow, Result>
     where
         Self: Sized,
@@ -61,6 +71,46 @@ pub trait WorkflowState<'workflow, Result>: Workflow {
         Fn: FnOnce(Self) -> Result,
     {
         ControlFlow::Break(map_fn(self))
+    }
+}
+
+fn run_with_middleware<'workflow, Workflow, Middleware, Result>(
+    initial_state: Workflow,
+    middleware: Middleware,
+) -> Result
+where
+    Workflow: WorkflowState<'workflow, Result>,
+    Middleware: WorkflowMiddleware,
+{
+    let workflow_name = initial_state.workflow_name();
+    let metadata = WorkflowMetadata {
+        name: &workflow_name,
+    };
+    let run_workflow_fn = || run_with_middleware_impl(initial_state, &middleware);
+
+    middleware.wrap_workflow(&metadata, run_workflow_fn)()
+}
+
+fn run_with_middleware_impl<'workflow, Workflow, Middleware, Result>(
+    initial_workflow_state: Workflow,
+    middleware: &Middleware,
+) -> Result
+where
+    Workflow: WorkflowState<'workflow, Result>,
+    Middleware: WorkflowMiddleware,
+{
+    let mut workflow_state: Box<dyn WorkflowState<Result>> = Box::new(initial_workflow_state);
+
+    loop {
+        let workflow_state_name = workflow_state.name();
+        let metadata = WorkflowStateMetadata {
+            name: &workflow_state_name,
+        };
+
+        match middleware.wrap_state(&metadata, || workflow_state.next())() {
+            ControlFlow::Continue(next) => workflow_state = next,
+            ControlFlow::Break(result) => return result,
+        }
     }
 }
 

@@ -1,8 +1,34 @@
-use crate::middleware::{AsyncWorkflowMiddleware, WorkflowMetadata, identity::IdentityMiddleware};
+use crate::middleware::{
+    AsyncWorkflowMiddleware, WorkflowMetadata, WorkflowMiddleware, identity::IdentityMiddleware,
+};
 
 pub struct MiddlewareStack<Inner, Outer> {
     inner: Inner,
     outer: Outer,
+}
+
+impl<Inner, Outer> WorkflowMiddleware for MiddlewareStack<Inner, Outer>
+where
+    Inner: WorkflowMiddleware,
+    Outer: WorkflowMiddleware,
+{
+    fn wrap_workflow<'workflow, Result>(
+        &self,
+        metadata: &'workflow WorkflowMetadata<'workflow>,
+        next: impl FnOnce() -> Result,
+    ) -> impl FnOnce() -> Result {
+        self.outer
+            .wrap_workflow(metadata, self.inner.wrap_workflow(metadata, next))
+    }
+
+    fn wrap_state<'state, Transition>(
+        &self,
+        metadata: &'state super::WorkflowStateMetadata<'state>,
+        next: impl FnOnce() -> Transition,
+    ) -> impl FnOnce() -> Transition {
+        self.outer
+            .wrap_state(metadata, self.inner.wrap_state(metadata, next))
+    }
 }
 
 impl<Inner, Outer> AsyncWorkflowMiddleware for MiddlewareStack<Inner, Outer>
@@ -10,11 +36,11 @@ where
     Inner: AsyncWorkflowMiddleware,
     Outer: AsyncWorkflowMiddleware,
 {
-    fn wrap_workflow<'workflow, T: Send + 'workflow>(
+    fn wrap_workflow<'workflow, Result: Send + 'workflow>(
         &self,
         metadata: &'workflow WorkflowMetadata<'workflow>,
-        fut: impl Future<Output = T> + Send + 'workflow,
-    ) -> impl Future<Output = T> + Send + 'workflow {
+        fut: impl Future<Output = Result> + Send + 'workflow,
+    ) -> impl Future<Output = Result> + Send + 'workflow {
         self.outer
             .wrap_workflow(metadata, self.inner.wrap_workflow(metadata, fut))
     }

@@ -1,6 +1,8 @@
 use tracing::{Instrument, Span, trace_span};
 
-use flowstate::middleware::{AsyncWorkflowMiddleware, WorkflowMetadata, WorkflowStateMetadata};
+use flowstate::middleware::{
+    AsyncWorkflowMiddleware, WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata,
+};
 
 pub struct TracingMiddleware<
     W = fn(&WorkflowMetadata) -> Span,
@@ -15,6 +17,36 @@ impl Default for TracingMiddleware {
         Self {
             workflow_span_factory: |m| trace_span!("flowstate::Workflow", workflow.name = m.name),
             state_span_factory: |m| trace_span!("flowstate::WorkflowState", state.name = m.name),
+        }
+    }
+}
+
+impl<W, S> WorkflowMiddleware for TracingMiddleware<W, S>
+where
+    W: WorkflowSpanFactory,
+    S: StateSpanFactory,
+{
+    fn wrap_workflow<'workflow, Result>(
+        &self,
+        metadata: &'workflow WorkflowMetadata<'workflow>,
+        next: impl FnOnce() -> Result,
+    ) -> impl FnOnce() -> Result {
+        || {
+            let span = self.workflow_span_factory.make_workflow_span(metadata);
+            let _guard = span.enter();
+            next()
+        }
+    }
+
+    fn wrap_state<'state, Transition>(
+        &self,
+        metadata: &'state WorkflowStateMetadata<'state>,
+        next: impl FnOnce() -> Transition,
+    ) -> impl FnOnce() -> Transition {
+        || {
+            let span = self.state_span_factory.make_state_span(metadata);
+            let _guard = span.enter();
+            next()
         }
     }
 }

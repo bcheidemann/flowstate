@@ -13,7 +13,25 @@ pub struct WorkflowStateMetadata<'a> {
     pub name: &'a str,
 }
 
-pub trait AsyncWorkflowMiddleware<Context = ()> {
+pub trait WorkflowMiddleware {
+    fn wrap_workflow<'workflow, Result>(
+        &self,
+        _metadata: &'workflow WorkflowMetadata<'workflow>,
+        next: impl FnOnce() -> Result,
+    ) -> impl FnOnce() -> Result {
+        next
+    }
+
+    fn wrap_state<'state, Transition>(
+        &self,
+        _metadata: &'state WorkflowStateMetadata<'state>,
+        next: impl FnOnce() -> Transition,
+    ) -> impl FnOnce() -> Transition {
+        next
+    }
+}
+
+pub trait AsyncWorkflowMiddleware {
     fn wrap_workflow<'workflow, Result: Send + 'workflow>(
         &self,
         _metadata: &'workflow WorkflowMetadata<'workflow>,
