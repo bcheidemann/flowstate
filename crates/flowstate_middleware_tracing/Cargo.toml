@@ -1,0 +1,12 @@
+[package]
+name = "flowstate_middleware_tracing"
+version = "0.7.1"
+edition = "2024"
+
+[dependencies]
+flowstate = { version = "0.7.1", path = "../flowstate" }
+tracing = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }
+tracing_test_subscriber = { version = "0.1.0", path = "../tracing_test_subscriber" }

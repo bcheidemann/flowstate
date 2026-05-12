@@ -34,6 +34,10 @@ impl<'a, State> Workflow for MyWorkflow<'a, State>
 where
     State: flowstate::State,
 {
+    fn workflow_name(&self) -> String {
+        type_name::<Self>().to_string()
+    }
+
     fn state(&self) -> &dyn flowstate::State {
         &self.state
     }

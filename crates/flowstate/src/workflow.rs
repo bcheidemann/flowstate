@@ -2,9 +2,14 @@ use std::ops::ControlFlow;
 
 use async_trait::async_trait;
 
-use crate::{AsyncTransition, State, Transition};
+use crate::{
+    AsyncTransition, State, Transition,
+    middleware::{AsyncWorkflowMiddleware, WorkflowMetadata, WorkflowStateMetadata},
+};
 
 pub trait Workflow {
+    fn workflow_name(&self) -> String;
+
     fn state(&self) -> &dyn State;
 }
 
@@ -96,6 +101,15 @@ pub trait AsyncWorkflowState<'workflow, Result>: Workflow + Send {
         }
     }
 
+    async fn run_with_middleware<Middleware>(self, middleware: Middleware) -> Result
+    where
+        Self: AsyncWorkflowState<'workflow, Result> + Sized,
+        Middleware: AsyncWorkflowMiddleware + Send + Sync,
+        Result: Send,
+    {
+        run_with_middleware_async(self, middleware).await
+    }
+
     fn finish(self, result: Result) -> AsyncTransition<'workflow, Result>
     where
         Self: Sized,
@@ -109,5 +123,50 @@ pub trait AsyncWorkflowState<'workflow, Result>: Workflow + Send {
         Fn: FnOnce(Self) -> Result,
     {
         ControlFlow::Break(map_fn(self))
+    }
+}
+
+async fn run_with_middleware_async<'workflow, Workflow, Middleware, Result>(
+    initial_state: Workflow,
+    middleware: Middleware,
+) -> Result
+where
+    Workflow: AsyncWorkflowState<'workflow, Result> + Sized,
+    Middleware: AsyncWorkflowMiddleware + Send + Sync,
+    Result: Send,
+{
+    let workflow_name = initial_state.workflow_name();
+    let metadata = WorkflowMetadata {
+        name: &workflow_name,
+    };
+    let run_workflow_fut = run_with_middleware_async_impl(initial_state, &middleware);
+
+    middleware.wrap_workflow(&metadata, run_workflow_fut).await
+}
+
+async fn run_with_middleware_async_impl<'workflow, Workflow, Middleware, Result>(
+    initial_workflow_state: Workflow,
+    middleware: &Middleware,
+) -> Result
+where
+    Workflow: AsyncWorkflowState<'workflow, Result> + Sized,
+    Middleware: AsyncWorkflowMiddleware,
+    Result: Send,
+{
+    let mut workflow_state: Box<dyn AsyncWorkflowState<Result>> = Box::new(initial_workflow_state);
+
+    loop {
+        let workflow_state_name = workflow_state.name();
+        let metadata = WorkflowStateMetadata {
+            name: &workflow_state_name,
+        };
+
+        match middleware
+            .wrap_state(&metadata, workflow_state.next())
+            .await
+        {
+            ControlFlow::Continue(next) => workflow_state = next,
+            ControlFlow::Break(result) => return result,
+        }
     }
 }

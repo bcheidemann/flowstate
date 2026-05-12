@@ -1,5 +1,5 @@
 use syn::{
-    Ident, LitBool, Path, Token,
+    Expr, Ident, LitBool, Path, Token,
     parse::{Parse, ParseStream},
 };
 
@@ -12,6 +12,7 @@ pub struct FlowstateAttrArgs {
     pub is_async: bool,
     pub result_type: Path,
     pub state_trait_ident: Option<Ident>,
+    pub name_expr: Option<Expr>,
 }
 
 impl Parse for FlowstateAttrArgs {
@@ -21,6 +22,7 @@ impl Parse for FlowstateAttrArgs {
         let mut is_async = None;
         let mut result_type = None;
         let mut state_trait_ident = None;
+        let mut name_expr = None;
 
         while !input.is_empty() {
             let ident = input.parse::<Ident>()?;
@@ -47,6 +49,12 @@ impl Parse for FlowstateAttrArgs {
                     }
                     state_trait_ident = Some(Self::parse_state_trait_ident(&mut input)?);
                 }
+                "name" => {
+                    if name_expr.is_some() {
+                        return Err(DuplicateAttributeArgument::at(ident).with("name").into());
+                    }
+                    name_expr = Some(Self::parse_name_expr(&mut input)?);
+                }
                 _ => {
                     return Err(UnknownAttributeArgument::at(ident).with(ident_name).into());
                 }
@@ -69,6 +77,7 @@ impl Parse for FlowstateAttrArgs {
             is_async: is_async.unwrap_or(false),
             result_type,
             state_trait_ident,
+            name_expr,
         })
     }
 }
@@ -91,6 +100,11 @@ impl FlowstateAttrArgs {
     fn parse_state_trait_ident(input: &mut ParseStream) -> syn::Result<Ident> {
         input.parse::<Token![=]>()?;
         input.parse::<Ident>()
+    }
+
+    fn parse_name_expr(input: &mut ParseStream) -> syn::Result<Expr> {
+        input.parse::<Token![=]>()?;
+        input.parse::<Expr>()
     }
 }
 

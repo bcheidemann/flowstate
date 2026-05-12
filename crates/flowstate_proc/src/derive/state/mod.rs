@@ -68,8 +68,10 @@ fn impl_state(s: ValidatedStateStruct<'_>) -> syn::Result<proc_macro2::TokenStre
     };
     let where_clause = &s.generics.where_clause;
     let name_expr = match s.args {
-        Some(FlowstateAttrArgs { name_expr }) => quote! { #name_expr.into() },
-        None => quote! {
+        Some(FlowstateAttrArgs {
+            name_expr: Some(name_expr),
+        }) => quote! { #name_expr.into() },
+        _ => quote! {
             ::std::any::type_name::<#ident #generic_args_bracketed>().to_string()
         },
     };

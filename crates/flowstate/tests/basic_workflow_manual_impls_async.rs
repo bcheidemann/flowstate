@@ -13,6 +13,10 @@ impl BasicWorkflow<StateA> {
 }
 
 impl<State: flowstate::State> Workflow for BasicWorkflow<State> {
+    fn workflow_name(&self) -> String {
+        type_name::<Self>().to_string()
+    }
+
     fn state(&self) -> &dyn flowstate::State {
         &self._state
     }

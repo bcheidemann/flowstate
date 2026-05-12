@@ -368,12 +368,22 @@ fn generate_workflow_impl(s: &ValidatedWorkflowStruct) -> proc_macro2::TokenStre
         }
         None => quote! { #state_generic_ident },
     };
+    let name_expr = match &s.args.name_expr {
+        Some(name_expr) => quote! { #name_expr.into() },
+        None => quote! {
+            ::std::any::type_name::<Self>().to_string()
+        },
+    };
 
     quote! {
         impl<#workflow_generics> ::flowstate::Workflow for #ident<#workflow_generics>
         where
             #state_generic_ident: ::flowstate::State,
         {
+            fn workflow_name(&self) -> String {
+                #name_expr
+            }
+
             fn state(&self) -> &dyn ::flowstate::State {
                 &self.#state_field_ident
             }
