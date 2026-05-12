@@ -18,6 +18,15 @@ where
         self.outer
             .wrap_workflow(metadata, self.inner.wrap_workflow(metadata, fut))
     }
+
+    fn wrap_state<'state, Transition: Send + 'state>(
+        &self,
+        metadata: &'state super::WorkflowStateMetadata<'state>,
+        fut: impl Future<Output = Transition> + Send + 'state,
+    ) -> impl Future<Output = Transition> + Send + 'state {
+        self.outer
+            .wrap_state(metadata, self.inner.wrap_state(metadata, fut))
+    }
 }
 
 pub struct MiddlewareStackBuilder<Stack>(Stack);
