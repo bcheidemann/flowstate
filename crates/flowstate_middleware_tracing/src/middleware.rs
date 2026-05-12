@@ -1,8 +1,10 @@
-use tracing::{Instrument, Span, trace_span};
+#[cfg(feature = "async")]
+use tracing::Instrument;
+use tracing::{Span, trace_span};
 
-use flowstate::middleware::{
-    AsyncWorkflowMiddleware, WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata,
-};
+#[cfg(feature = "async")]
+use flowstate::middleware::AsyncWorkflowMiddleware;
+use flowstate::middleware::{WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata};
 
 pub struct TracingMiddleware<
     W = fn(&WorkflowMetadata) -> Span,
@@ -51,6 +53,7 @@ where
     }
 }
 
+#[cfg(feature = "async")]
 impl<W, S> AsyncWorkflowMiddleware for TracingMiddleware<W, S>
 where
     W: WorkflowSpanFactory,

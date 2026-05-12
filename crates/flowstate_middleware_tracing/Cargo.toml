@@ -3,8 +3,12 @@ name = "flowstate_middleware_tracing"
 version = "0.7.1"
 edition = "2024"
 
+[features]
+async = ["flowstate/async"]
+default = ["async"]
+
 [dependencies]
-flowstate = { version = "0.7.1", path = "../flowstate" }
+flowstate = { version = "0.7.1", path = "../flowstate", default-features = false }
 tracing = "0.1"
 
 [dev-dependencies]
