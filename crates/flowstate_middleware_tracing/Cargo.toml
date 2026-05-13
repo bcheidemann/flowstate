@@ -2,6 +2,11 @@
 name = "flowstate_middleware_tracing"
 version = "0.7.2"
 edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Tracing middleware for flowstate."
+homepage = "https://github.com/bcheidemann/flowstate"
+repository = "https://github.com/bcheidemann/flowstate"
+readme = "README.md"
 
 [features]
 async = ["flowstate/async"]
