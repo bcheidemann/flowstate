@@ -1,6 +1,6 @@
 [package]
 name = "flowstate"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Workflow runtime powered by finite state machines."
@@ -16,7 +16,7 @@ default = ["async", "macros"]
 
 [dependencies]
 async-trait = { version = "0.1.89", optional = true }
-flowstate_proc = { version = "0.7.1", path = "../flowstate_proc", optional = true }
+flowstate_proc = { version = "0.7.2", path = "../flowstate_proc", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }

@@ -1,6 +1,6 @@
 [package]
 name = "flowstate_middleware_tracing"
-version = "0.7.1"
+version = "0.7.2"
 edition = "2024"
 
 [features]
@@ -8,7 +8,7 @@ async = ["flowstate/async"]
 default = ["async"]
 
 [dependencies]
-flowstate = { version = "0.7.1", path = "../flowstate", default-features = false, features = ["unstable_middleware"] }
+flowstate = { version = "0.7.2", path = "../flowstate", default-features = false, features = ["unstable_middleware"] }
 tracing = "0.1"
 
 [dev-dependencies]
