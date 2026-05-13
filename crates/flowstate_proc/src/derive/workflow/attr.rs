@@ -1,28 +1,31 @@
 use syn::{
-    Expr, Ident, LitBool, Path, Token,
+    Expr, Ident, Path, Token,
     parse::{Parse, ParseStream},
 };
 
-use crate::err::{
-    DuplicateAttributeArgument, MissingAttributeArgument, UnexpectedArgumentsForStateAttribute,
-    UnknownAttributeArgument,
+use crate::{
+    derive::common::FieldAssignment,
+    err::{
+        DeprecatedIsAsync, DuplicateAttributeArgument, MissingAttributeArgument,
+        UnexpectedArgumentsForStateAttribute, UnknownAttributeArgument,
+    },
 };
 
 pub struct FlowstateAttrArgs {
-    pub is_async: bool,
     pub result_type: Path,
     pub state_trait_ident: Option<Ident>,
     pub name_expr: Option<Expr>,
+    pub ctx_key_value_pairs: Vec<FieldAssignment>,
 }
 
 impl Parse for FlowstateAttrArgs {
     fn parse(mut input: ParseStream) -> syn::Result<Self> {
         let span = input.span();
 
-        let mut is_async = None;
         let mut result_type = None;
         let mut state_trait_ident = None;
         let mut name_expr = None;
+        let mut ctx_key_value_pairs = Vec::new();
 
         while !input.is_empty() {
             let ident = input.parse::<Ident>()?;
@@ -30,10 +33,7 @@ impl Parse for FlowstateAttrArgs {
 
             match ident_name.as_str() {
                 "is_async" => {
-                    if is_async.is_some() {
-                        return Err(DuplicateAttributeArgument::at(ident).with("async").into());
-                    }
-                    is_async = Some(Self::parse_is_async(&mut input)?);
+                    return Err(DeprecatedIsAsync::at(ident).into());
                 }
                 "result" => {
                     if result_type.is_some() {
@@ -55,6 +55,10 @@ impl Parse for FlowstateAttrArgs {
                     }
                     name_expr = Some(Self::parse_name_expr(&mut input)?);
                 }
+                "ctx" => {
+                    input.parse::<Token![.]>()?;
+                    ctx_key_value_pairs.push(FieldAssignment::parse(&mut input)?);
+                }
                 _ => {
                     return Err(UnknownAttributeArgument::at(ident).with(ident_name).into());
                 }
@@ -74,24 +78,15 @@ impl Parse for FlowstateAttrArgs {
         };
 
         Ok(Self {
-            is_async: is_async.unwrap_or(false),
             result_type,
             state_trait_ident,
             name_expr,
+            ctx_key_value_pairs,
         })
     }
 }
 
 impl FlowstateAttrArgs {
-    fn parse_is_async(input: &mut ParseStream) -> syn::Result<bool> {
-        if !input.peek(Token![=]) {
-            return Ok(true);
-        }
-        input.parse::<Token![=]>()?;
-        let value = input.parse::<LitBool>()?;
-        Ok(value.value)
-    }
-
     fn parse_result_type(input: &mut ParseStream) -> syn::Result<Path> {
         input.parse::<Token![=]>()?;
         input.parse::<Path>()

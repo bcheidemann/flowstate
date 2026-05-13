@@ -3,12 +3,15 @@ mod attr;
 use quote::quote;
 use syn::{DeriveInput, Generics, Ident};
 
-use crate::derive::state::attr::FlowstateAttrArgs;
+use crate::derive::{common::FieldAssignment, state::attr::FlowstateAttrArgs};
 
-pub fn derive_state_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+pub fn derive_state_impl(
+    input: DeriveInput,
+    is_async: bool,
+) -> syn::Result<proc_macro2::TokenStream> {
     let s = validate_input(&input)?;
 
-    impl_state(s)
+    impl_state(s, is_async)
 }
 
 struct ValidatedStateStruct<'s> {
@@ -36,8 +39,16 @@ fn validate_flowstate_attr(input: &DeriveInput) -> syn::Result<Option<FlowstateA
     attr.parse_args().map(Some)
 }
 
-fn impl_state(s: ValidatedStateStruct<'_>) -> syn::Result<proc_macro2::TokenStream> {
+fn impl_state(
+    s: ValidatedStateStruct<'_>,
+    is_async: bool,
+) -> syn::Result<proc_macro2::TokenStream> {
     let ident = s.ident;
+    let state_trait_ident = if is_async {
+        quote! { ::flowstate::AsyncState }
+    } else {
+        quote! { ::flowstate::State }
+    };
     let generics = s.generics;
     let const_params = s.generics.const_params().collect::<Vec<_>>();
     let lifetime_params = s.generics.lifetimes().collect::<Vec<_>>();
@@ -67,19 +78,40 @@ fn impl_state(s: ValidatedStateStruct<'_>) -> syn::Result<proc_macro2::TokenStre
         }
     };
     let where_clause = &s.generics.where_clause;
-    let name_expr = match s.args {
+    let name_expr = match &s.args {
         Some(FlowstateAttrArgs {
             name_expr: Some(name_expr),
+            ..
         }) => quote! { #name_expr.into() },
         _ => quote! {
             ::std::any::type_name::<#ident #generic_args_bracketed>().to_string()
         },
     };
+    let context_assignments = s
+        .args
+        .map(|args| args.ctx_key_value_pairs)
+        .unwrap_or_default()
+        .iter()
+        .map(|FieldAssignment { field, value }| {
+            quote! {
+                ctx.insert(::flowstate::TypedKey::new(#field), #value);
+            }
+        })
+        .collect::<Vec<_>>();
+    let context_type = if is_async {
+        quote! { ::flowstate::AsyncContext }
+    } else {
+        quote! { ::flowstate::Context }
+    };
 
     Ok(quote! {
-        impl #generics ::flowstate::State for #ident #generic_args_bracketed #where_clause {
+        impl #generics #state_trait_ident for #ident #generic_args_bracketed #where_clause {
             fn name(&self) -> String {
                 #name_expr
+            }
+
+            fn record_context(&self, ctx: &mut #context_type) {
+                #(#context_assignments)*
             }
         }
     })

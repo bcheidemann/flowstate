@@ -3,15 +3,20 @@ use syn::{
     parse::{Parse, ParseStream},
 };
 
-use crate::err::{DuplicateAttributeArgument, UnknownAttributeArgument};
+use crate::{
+    derive::common::FieldAssignment,
+    err::{DuplicateAttributeArgument, UnknownAttributeArgument},
+};
 
 pub struct FlowstateAttrArgs {
     pub name_expr: Option<Expr>,
+    pub ctx_key_value_pairs: Vec<FieldAssignment>,
 }
 
 impl Parse for FlowstateAttrArgs {
     fn parse(mut input: ParseStream) -> syn::Result<Self> {
         let mut name_expr = None;
+        let mut ctx_key_value_pairs = Vec::new();
 
         while !input.is_empty() {
             let ident = input.parse::<Ident>()?;
@@ -24,13 +29,26 @@ impl Parse for FlowstateAttrArgs {
                     }
                     name_expr = Some(Self::parse_name_expr(&mut input)?)
                 }
+                "ctx" => {
+                    input.parse::<Token![.]>()?;
+                    ctx_key_value_pairs.push(FieldAssignment::parse(&mut input)?);
+                }
                 _ => {
                     return Err(UnknownAttributeArgument::at(ident).with(ident_name).into());
                 }
             }
+
+            if input.is_empty() {
+                break;
+            }
+
+            input.parse::<Token![,]>()?;
         }
 
-        Ok(FlowstateAttrArgs { name_expr })
+        Ok(FlowstateAttrArgs {
+            name_expr,
+            ctx_key_value_pairs,
+        })
     }
 }
 

@@ -20,18 +20,26 @@ struct BasicWorkflow<State> {
 #[derive(State)]
 struct StateA;
 
-#[async_state]
 impl BasicWorkflowState for BasicWorkflow<StateA> {
     fn next(self: Box<Self>) -> StaticTransition<WorkflowResult> {
         info!("event A");
-        self.transition(StateB)
+        self.transition(StateB {
+            data: "Hello world!",
+        })
     }
 }
 
 #[derive(State)]
-struct StateB;
+#[flowstate(
+    ctx.span = info_span!(
+        "StateB",
+        data = self.data,
+    ),
+)]
+struct StateB {
+    data: &'static str,
+}
 
-#[async_state]
 impl BasicWorkflowState for BasicWorkflow<StateB> {
     fn next(self: Box<Self>) -> StaticTransition<WorkflowResult> {
         info!("event B");
@@ -92,18 +100,15 @@ fn test_tracing_middleware() {
     // State B
     assert_eq!(
         history.spans[0].spans[1].attributes.metadata.level(),
-        &Level::TRACE
+        &Level::INFO
     );
     assert_eq!(
         history.spans[0].spans[1].attributes.metadata.name(),
-        "flowstate::WorkflowState"
+        "StateB"
     );
     assert_eq!(
-        history.spans[0].spans[1]
-            .attributes
-            .fields
-            .get("state.name"),
-        Some(&"\"tracing_middleware::StateB\"".to_string())
+        history.spans[0].spans[1].attributes.fields.get("data"),
+        Some(&"\"Hello world!\"".to_string())
     );
     assert_eq!(history.spans[0].spans[1].events.len(), 1);
     assert_eq!(
@@ -124,10 +129,13 @@ fn test_tracing_middleware_custom_spans() {
     let workflow = BasicWorkflow::new(StateA);
     let middleware = TracingMiddleware::default()
         .with_workflow_span(|m: &WorkflowMetadata| {
-            info_span!("custom workflow span", my_workflow_name = m.name)
+            Some(info_span!(
+                "custom workflow span",
+                my_workflow_name = m.name
+            ))
         })
         .with_state_span(|m: &WorkflowStateMetadata| {
-            info_span!("custom state span", my_state_name = m.name)
+            Some(info_span!("custom state span", my_state_name = m.name))
         });
 
     let result = tracing::subscriber::with_default(subscriber.clone(), || {
@@ -178,14 +186,11 @@ fn test_tracing_middleware_custom_spans() {
     );
     assert_eq!(
         history.spans[0].spans[1].attributes.metadata.name(),
-        "custom state span"
+        "StateB"
     );
     assert_eq!(
-        history.spans[0].spans[1]
-            .attributes
-            .fields
-            .get("my_state_name"),
-        Some(&"\"tracing_middleware::StateB\"".to_string())
+        history.spans[0].spans[1].attributes.fields.get("data"),
+        Some(&"\"Hello world!\"".to_string())
     );
     assert_eq!(history.spans[0].spans[1].events.len(), 1);
     assert_eq!(

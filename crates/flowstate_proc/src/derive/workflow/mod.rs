@@ -4,7 +4,10 @@ use quote::quote;
 use syn::{DeriveInput, Fields, FieldsNamed, Ident, LifetimeParam, Type, TypeParam};
 
 use crate::{
-    derive::workflow::attr::{FlowstateAttrArgs, StateAttrArgs},
+    derive::{
+        common::FieldAssignment,
+        workflow::attr::{FlowstateAttrArgs, StateAttrArgs},
+    },
     err::{
         DuplicateStateAttribute, ExtraGenericLifetimeParameter, InvalidStateFieldType,
         MissingFlowstateAttributeOnWorkflow, MissingGenericTypeParameterForState,
@@ -16,10 +19,13 @@ use crate::{
     },
 };
 
-pub fn derive_workflow_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+pub fn derive_workflow_impl(
+    input: DeriveInput,
+    is_async: bool,
+) -> syn::Result<proc_macro2::TokenStream> {
     let s = validate_input(&input)?;
 
-    generate_impls(&s)
+    generate_impls(&s, is_async)
 }
 
 struct ValidatedWorkflowStruct<'s> {
@@ -223,11 +229,14 @@ fn validate_struct_fields<'a>(
     Ok(ValidatedStructFields { state, rest })
 }
 
-fn generate_impls(s: &ValidatedWorkflowStruct) -> syn::Result<proc_macro2::TokenStream> {
+fn generate_impls(
+    s: &ValidatedWorkflowStruct,
+    is_async: bool,
+) -> syn::Result<proc_macro2::TokenStream> {
     let constructor_impl = generate_constructor_impl(s);
-    let transition_helpers = generate_transition_helpers(s);
-    let workflow_impl = generate_workflow_impl(s);
-    let state_trait = generate_state_trait(s);
+    let transition_helpers = generate_transition_helpers(s, is_async);
+    let workflow_impl = generate_workflow_impl(s, is_async);
+    let state_trait = generate_state_trait(s, is_async);
 
     Ok(quote! {
         #constructor_impl
@@ -273,7 +282,10 @@ fn generate_constructor_impl(s: &ValidatedWorkflowStruct) -> proc_macro2::TokenS
     }
 }
 
-fn generate_transition_helpers(s: &ValidatedWorkflowStruct) -> proc_macro2::TokenStream {
+fn generate_transition_helpers(
+    s: &ValidatedWorkflowStruct,
+    is_async: bool,
+) -> proc_macro2::TokenStream {
     let ident = s.ident;
     let state_generic_ident = &s.generics.state_type_param.ident;
     let workflow_lifetime = match &s.generics.workflow_lifetime_param {
@@ -311,12 +323,12 @@ fn generate_transition_helpers(s: &ValidatedWorkflowStruct) -> proc_macro2::Toke
             }
         })
         .collect();
-    let workflow_state_trait = if s.args.is_async {
+    let workflow_state_trait = if is_async {
         quote! { ::flowstate::AsyncWorkflowState }
     } else {
         quote! { ::flowstate::WorkflowState }
     };
-    let transition_type = if s.args.is_async {
+    let transition_type = if is_async {
         quote! { ::flowstate::AsyncTransition }
     } else {
         quote! { ::flowstate::Transition }
@@ -355,8 +367,18 @@ fn generate_transition_helpers(s: &ValidatedWorkflowStruct) -> proc_macro2::Toke
     }
 }
 
-fn generate_workflow_impl(s: &ValidatedWorkflowStruct) -> proc_macro2::TokenStream {
+fn generate_workflow_impl(s: &ValidatedWorkflowStruct, is_async: bool) -> proc_macro2::TokenStream {
     let ident = s.ident;
+    let state_trait_ident = if is_async {
+        quote! { ::flowstate::AsyncState }
+    } else {
+        quote! { ::flowstate::State }
+    };
+    let workflow_trait_ident = if is_async {
+        quote! { ::flowstate::AsyncWorkflow }
+    } else {
+        quote! { ::flowstate::Workflow }
+    };
     let state_generic_ident = &s.generics.state_type_param.ident;
     let state_field_ident = &s.fields.state.ident;
     let workflow_generics = match s.generics.workflow_lifetime_param {
@@ -374,25 +396,51 @@ fn generate_workflow_impl(s: &ValidatedWorkflowStruct) -> proc_macro2::TokenStre
             ::std::any::type_name::<Self>().to_string()
         },
     };
+    let context_assignments =
+        s.args
+            .ctx_key_value_pairs
+            .iter()
+            .map(|FieldAssignment { field, value }| {
+                quote! {
+                    ctx.insert(::flowstate::TypedKey::new(#field), #value);
+                }
+            });
+    let context_type = if is_async {
+        quote! { ::flowstate::AsyncContext }
+    } else {
+        quote! { ::flowstate::Context }
+    };
 
     quote! {
-        impl<#workflow_generics> ::flowstate::Workflow for #ident<#workflow_generics>
+        impl<#workflow_generics> #workflow_trait_ident for #ident<#workflow_generics>
         where
-            #state_generic_ident: ::flowstate::State,
+            #state_generic_ident: #state_trait_ident,
         {
             fn workflow_name(&self) -> String {
                 #name_expr
             }
 
-            fn state(&self) -> &dyn ::flowstate::State {
+            fn record_workflow_context(&self, ctx: &mut #context_type) {
+                #(#context_assignments)*
+            }
+
+            fn state(&self) -> &dyn #state_trait_ident {
                 &self.#state_field_ident
             }
         }
     }
 }
 
-fn generate_state_trait(s: &ValidatedWorkflowStruct) -> Option<proc_macro2::TokenStream> {
+fn generate_state_trait(
+    s: &ValidatedWorkflowStruct,
+    is_async: bool,
+) -> Option<proc_macro2::TokenStream> {
     let ident = s.ident;
+    let workflow_trait_ident = if is_async {
+        quote! { ::flowstate::AsyncWorkflow + Send }
+    } else {
+        quote! { ::flowstate::Workflow }
+    };
     let state_generic_ident = &s.generics.state_type_param.ident;
     let result_type = &s.args.result_type;
     let Some(state_trait_ident) = &s.args.state_trait_ident else {
@@ -419,28 +467,28 @@ fn generate_state_trait(s: &ValidatedWorkflowStruct) -> Option<proc_macro2::Toke
     let trait_generics_bracketed = trait_generics
         .as_ref()
         .map(|trait_generics| quote! { <#trait_generics> });
-    let workflow_state_trait = if s.args.is_async {
+    let workflow_state_trait = if is_async {
         quote! { ::flowstate::AsyncWorkflowState }
     } else {
         quote! { ::flowstate::WorkflowState }
     };
-    let transition_type = if s.args.is_async {
+    let transition_type = if is_async {
         quote! { ::flowstate::AsyncTransition }
     } else {
         quote! { ::flowstate::Transition }
     };
-    let state_trait_attrs = s.args.is_async.then(|| {
+    let state_trait_attrs = is_async.then(|| {
         quote! {
             #[::flowstate::async_state]
         }
     });
-    let state_generic_bounds = if s.args.is_async {
-        quote! { ::flowstate::State + Send }
+    let state_generic_bounds = if is_async {
+        quote! { ::flowstate::AsyncState }
     } else {
         quote! { ::flowstate::State }
     };
-    let async_modifier = s.args.is_async.then(|| quote! { async });
-    let await_operator = s.args.is_async.then(|| quote! { .await });
+    let async_modifier = is_async.then(|| quote! { async });
+    let await_operator = is_async.then(|| quote! { .await });
 
     Some(quote! {
         /// Each implementation represents the workflow in a specific state and
@@ -461,7 +509,7 @@ fn generate_state_trait(s: &ValidatedWorkflowStruct) -> Option<proc_macro2::Toke
         /// to terminate the workflow with a result.
         ///
         #state_trait_attrs
-        trait #state_trait_ident #trait_generics_bracketed: ::flowstate::Workflow {
+        trait #state_trait_ident #trait_generics_bracketed: #workflow_trait_ident {
             fn state_name(&self) -> String {
                 self.state().name()
             }

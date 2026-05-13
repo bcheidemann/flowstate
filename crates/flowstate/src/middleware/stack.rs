@@ -1,6 +1,9 @@
 #[cfg(feature = "async")]
-use crate::middleware::AsyncWorkflowMiddleware;
-use crate::middleware::{WorkflowMetadata, WorkflowMiddleware, identity::IdentityMiddleware};
+use crate::{AsyncContext, middleware::AsyncWorkflowMiddleware};
+use crate::{
+    Context,
+    middleware::{WorkflowMetadata, WorkflowMiddleware, identity::IdentityMiddleware},
+};
 
 pub struct MiddlewareStack<Inner, Outer> {
     inner: Inner,
@@ -15,19 +18,21 @@ where
     fn wrap_workflow<'workflow, Result>(
         &self,
         metadata: &'workflow WorkflowMetadata<'workflow>,
+        ctx: &Context,
         next: impl FnOnce() -> Result,
     ) -> impl FnOnce() -> Result {
         self.outer
-            .wrap_workflow(metadata, self.inner.wrap_workflow(metadata, next))
+            .wrap_workflow(metadata, ctx, self.inner.wrap_workflow(metadata, ctx, next))
     }
 
     fn wrap_state<'state, Transition>(
         &self,
         metadata: &'state super::WorkflowStateMetadata<'state>,
+        ctx: &Context,
         next: impl FnOnce() -> Transition,
     ) -> impl FnOnce() -> Transition {
         self.outer
-            .wrap_state(metadata, self.inner.wrap_state(metadata, next))
+            .wrap_state(metadata, ctx, self.inner.wrap_state(metadata, ctx, next))
     }
 }
 
@@ -40,19 +45,21 @@ where
     fn wrap_workflow<'workflow, Result: Send + 'workflow>(
         &self,
         metadata: &'workflow WorkflowMetadata<'workflow>,
+        ctx: &AsyncContext,
         fut: impl Future<Output = Result> + Send + 'workflow,
     ) -> impl Future<Output = Result> + Send + 'workflow {
         self.outer
-            .wrap_workflow(metadata, self.inner.wrap_workflow(metadata, fut))
+            .wrap_workflow(metadata, ctx, self.inner.wrap_workflow(metadata, ctx, fut))
     }
 
     fn wrap_state<'state, Transition: Send + 'state>(
         &self,
         metadata: &'state super::WorkflowStateMetadata<'state>,
+        ctx: &AsyncContext,
         fut: impl Future<Output = Transition> + Send + 'state,
     ) -> impl Future<Output = Transition> + Send + 'state {
         self.outer
-            .wrap_state(metadata, self.inner.wrap_state(metadata, fut))
+            .wrap_state(metadata, ctx, self.inner.wrap_state(metadata, ctx, fut))
     }
 }
 

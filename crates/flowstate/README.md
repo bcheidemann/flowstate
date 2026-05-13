@@ -295,14 +295,11 @@ for a working example.
 
 ### Async workflows
 
-Workflows can be made asynchronous by setting `is_async` (shorthand for
-`is_async = true`). Note that this requires the `async` Cargo feature to be
-enabled.
+Workflows implementing the `AsyncWorkflow` trait will execute asynchronously.
 
 ```rs
-#[derive(Workflow)]
+#[derive(AsyncWorkflow)]
 #[flowstate(
-    is_async,
     result = WorkflowResult,
     state_trait = BasicWorkflowState,
 )]
@@ -312,10 +309,10 @@ struct BasicWorkflow<State> {
 }
 ```
 
-The implementation for workflow states remains largely the same.
+Similarly, the `AsyncState` trait should be derived on each state.
 
 ```rs
-#[derive(State)]
+#[derive(AsyncState)]
 struct StateA;
 
 #[async_state]
@@ -326,7 +323,8 @@ impl BasicWorkflowState for BasicWorkflow<StateA> {
 }
 ```
 
-However, note the following differences from the synchronous implementation:
+However, note the following additional differences from the synchronous
+implementation:
 
 1. The `impl` block has been annotated with the `#[async_state]` attribute. This is a re-export of the `async_trait` macro, and is exported by the Flowstate prelude. It is preferred to use `flowstate::async_state` over `async_trait::async_trait` directly, in case the implementation is replaced in future versions.
 2. The `next` function is now `async`.
@@ -336,3 +334,62 @@ For an example of an async workflow with a generic lifetime parameter, and
 generic states, see [tests/workflow_with_lifetime_generics_async.rs](tests/workflow_with_lifetime_generics_async.rs).
 The implementation is similar, but requires some `Send` bounds to be added in
 key places.
+
+### Middleware (unstable)
+
+_Middleware is currently available behind the `unstable_middleware` flag._
+
+Middleware allows third party code to hook into the workflow lifecycle.
+
+Workflows and workflow states can expose data to middleware as follows:
+
+```rs
+#[derive(Workflow)] // Or #[derive(State)]
+#[flowstate(
+    // ...
+    ctx.span = info_span!(
+        "MyWorkflow",
+        description = "A flowstate workflow",
+        ctx = self.ctx,
+    ),
+)]
+// ...
+```
+
+Tracing provides the following first party middleware:
+
+#### `MiddlewareStack`
+
+The `MiddlewareStack` middleware can be used to combine multiple middlewares.
+
+```rs
+use flowstate::middleware::MiddlewareStackBuilder;
+
+let middleware = MiddlewareStackBuilder::new()
+    .layer(middleware_layer_a)
+    .layer(middleware_layer_b)
+    .layer(middleware_layer_c)
+    // ...
+    .layer(middleware_layer_z)
+    .build();
+```
+
+### `IdentityMiddleware`
+
+The `IdentityMiddleware` middleware is a no-op middleware. It is optimised away
+at compile time, so it does not impact performance.
+
+```rs
+let middleware = IdentityMiddleware::default();
+```
+
+### `flowstate_middleware_tracing`
+
+The [`flowstate_middleware_tracing`](https://crates.io/crates/flowstate_middleware_tracing)
+crate integrates with `tracing` to instrument workflows and states with spans.
+
+```rs
+use flowstate_middleware_tracing::TracingMiddleware;
+
+let middleware = TracingMiddleware::default();
+```

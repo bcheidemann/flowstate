@@ -1,15 +1,17 @@
 use std::ops::ControlFlow;
 
-#[cfg(feature = "async")]
-use crate::AsyncTransition;
 #[cfg(all(feature = "async", feature = "unstable_middleware"))]
 use crate::middleware::AsyncWorkflowMiddleware;
 #[cfg(feature = "unstable_middleware")]
 use crate::middleware::{WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata};
-use crate::{State, Transition};
+#[cfg(feature = "async")]
+use crate::{AsyncContext, AsyncState, AsyncTransition};
+use crate::{Context, State, Transition};
 
 pub trait Workflow {
     fn workflow_name(&self) -> String;
+
+    fn record_workflow_context(&self, _ctx: &mut Context) {}
 
     fn state(&self) -> &dyn State;
 }
@@ -23,6 +25,10 @@ pub trait Workflow {
 pub trait WorkflowState<'workflow, Result>: Workflow {
     fn name(&self) -> String {
         self.state().name()
+    }
+
+    fn record_context(&self, ctx: &mut Context) {
+        self.state().record_context(ctx)
     }
 
     /// Consumes the current workflow state and returns either:
@@ -75,45 +81,52 @@ pub trait WorkflowState<'workflow, Result>: Workflow {
 }
 
 #[cfg(feature = "unstable_middleware")]
-fn run_with_middleware<'workflow, Workflow, Middleware, Result>(
-    initial_state: Workflow,
-    middleware: Middleware,
-) -> Result
+fn run_with_middleware<'workflow, W, M, R>(initial_state: W, middleware: M) -> R
 where
-    Workflow: WorkflowState<'workflow, Result>,
-    Middleware: WorkflowMiddleware,
+    W: WorkflowState<'workflow, R>,
+    M: WorkflowMiddleware,
 {
     let workflow_name = initial_state.workflow_name();
     let metadata = WorkflowMetadata {
         name: &workflow_name,
     };
+    let mut ctx = Context::default();
+    initial_state.record_workflow_context(&mut ctx);
     let run_workflow_fn = || run_with_middleware_impl(initial_state, &middleware);
 
-    middleware.wrap_workflow(&metadata, run_workflow_fn)()
+    middleware.wrap_workflow(&metadata, &ctx, run_workflow_fn)()
 }
 
 #[cfg(feature = "unstable_middleware")]
-fn run_with_middleware_impl<'workflow, Workflow, Middleware, Result>(
-    initial_workflow_state: Workflow,
-    middleware: &Middleware,
-) -> Result
+fn run_with_middleware_impl<'workflow, W, M, R>(initial_workflow_state: W, middleware: &M) -> R
 where
-    Workflow: WorkflowState<'workflow, Result>,
-    Middleware: WorkflowMiddleware,
+    W: WorkflowState<'workflow, R>,
+    M: WorkflowMiddleware,
 {
-    let mut workflow_state: Box<dyn WorkflowState<Result>> = Box::new(initial_workflow_state);
+    let mut workflow_state: Box<dyn WorkflowState<R>> = Box::new(initial_workflow_state);
 
     loop {
         let workflow_state_name = workflow_state.name();
         let metadata = WorkflowStateMetadata {
             name: &workflow_state_name,
         };
+        let mut ctx = Context::default();
+        workflow_state.record_context(&mut ctx);
 
-        match middleware.wrap_state(&metadata, || workflow_state.next())() {
+        match middleware.wrap_state(&metadata, &ctx, || workflow_state.next())() {
             ControlFlow::Continue(next) => workflow_state = next,
             ControlFlow::Break(result) => return result,
         }
     }
+}
+
+#[cfg(feature = "async")]
+pub trait AsyncWorkflow {
+    fn workflow_name(&self) -> String;
+
+    fn record_workflow_context(&self, _ctx: &mut AsyncContext) {}
+
+    fn state(&self) -> &dyn AsyncState;
 }
 
 /// An async [`Workflow`] in a specific state.
@@ -124,9 +137,13 @@ where
 /// result.
 #[cfg(feature = "async")]
 #[async_trait::async_trait]
-pub trait AsyncWorkflowState<'workflow, Result>: Workflow + Send {
+pub trait AsyncWorkflowState<'workflow, Result>: AsyncWorkflow + Send {
     fn name(&self) -> String {
         self.state().name()
+    }
+
+    fn record_context(&self, ctx: &mut AsyncContext) {
+        self.state().record_context(ctx)
     }
 
     /// Consumes the current workflow state and returns either:
@@ -180,44 +197,47 @@ pub trait AsyncWorkflowState<'workflow, Result>: Workflow + Send {
 }
 
 #[cfg(all(feature = "async", feature = "unstable_middleware"))]
-async fn run_with_middleware_async<'workflow, Workflow, Middleware, Result>(
-    initial_state: Workflow,
-    middleware: Middleware,
-) -> Result
+async fn run_with_middleware_async<'workflow, W, M, R>(initial_state: W, middleware: M) -> R
 where
-    Workflow: AsyncWorkflowState<'workflow, Result> + Sized,
-    Middleware: AsyncWorkflowMiddleware + Send + Sync,
-    Result: Send,
+    W: AsyncWorkflowState<'workflow, R> + Sized,
+    M: AsyncWorkflowMiddleware + Send + Sync,
+    R: Send,
 {
     let workflow_name = initial_state.workflow_name();
     let metadata = WorkflowMetadata {
         name: &workflow_name,
     };
+    let mut ctx = AsyncContext::default();
+    initial_state.record_workflow_context(&mut ctx);
     let run_workflow_fut = run_with_middleware_async_impl(initial_state, &middleware);
 
-    middleware.wrap_workflow(&metadata, run_workflow_fut).await
+    middleware
+        .wrap_workflow(&metadata, &ctx, run_workflow_fut)
+        .await
 }
 
 #[cfg(all(feature = "async", feature = "unstable_middleware"))]
-async fn run_with_middleware_async_impl<'workflow, Workflow, Middleware, Result>(
-    initial_workflow_state: Workflow,
-    middleware: &Middleware,
-) -> Result
+async fn run_with_middleware_async_impl<'workflow, W, M, R>(
+    initial_workflow_state: W,
+    middleware: &M,
+) -> R
 where
-    Workflow: AsyncWorkflowState<'workflow, Result> + Sized,
-    Middleware: AsyncWorkflowMiddleware,
-    Result: Send,
+    W: AsyncWorkflowState<'workflow, R> + Sized,
+    M: AsyncWorkflowMiddleware,
+    R: Send,
 {
-    let mut workflow_state: Box<dyn AsyncWorkflowState<Result>> = Box::new(initial_workflow_state);
+    let mut workflow_state: Box<dyn AsyncWorkflowState<R>> = Box::new(initial_workflow_state);
 
     loop {
         let workflow_state_name = workflow_state.name();
         let metadata = WorkflowStateMetadata {
             name: &workflow_state_name,
         };
+        let mut ctx = AsyncContext::default();
+        workflow_state.record_context(&mut ctx);
 
         match middleware
-            .wrap_state(&metadata, workflow_state.next())
+            .wrap_state(&metadata, &ctx, workflow_state.next())
             .await
         {
             ControlFlow::Continue(next) => workflow_state = next,

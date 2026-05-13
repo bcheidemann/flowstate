@@ -1,3 +1,7 @@
+#[cfg(feature = "async")]
+use crate::AsyncContext;
+use crate::Context;
+
 pub mod identity;
 pub mod stack;
 
@@ -14,17 +18,21 @@ pub struct WorkflowStateMetadata<'a> {
 }
 
 pub trait WorkflowMiddleware {
+    #[inline(always)]
     fn wrap_workflow<'workflow, Result>(
         &self,
         _metadata: &'workflow WorkflowMetadata<'workflow>,
+        _ctx: &Context,
         next: impl FnOnce() -> Result,
     ) -> impl FnOnce() -> Result {
         next
     }
 
+    #[inline(always)]
     fn wrap_state<'state, Transition>(
         &self,
         _metadata: &'state WorkflowStateMetadata<'state>,
+        _ctx: &Context,
         next: impl FnOnce() -> Transition,
     ) -> impl FnOnce() -> Transition {
         next
@@ -36,6 +44,7 @@ pub trait AsyncWorkflowMiddleware {
     fn wrap_workflow<'workflow, Result: Send + 'workflow>(
         &self,
         _metadata: &'workflow WorkflowMetadata<'workflow>,
+        _ctx: &AsyncContext,
         fut: impl Future<Output = Result> + Send + 'workflow,
     ) -> impl Future<Output = Result> + Send + 'workflow {
         fut
@@ -44,6 +53,7 @@ pub trait AsyncWorkflowMiddleware {
     fn wrap_state<'state, Transition: Send + 'state>(
         &self,
         _metadata: &'state WorkflowStateMetadata<'state>,
+        _ctx: &AsyncContext,
         fut: impl Future<Output = Transition> + Send + 'state,
     ) -> impl Future<Output = Transition> + Send + 'state {
         fut

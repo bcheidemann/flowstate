@@ -9,7 +9,16 @@ mod err;
 pub fn derive_state(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    derive_state_impl(input)
+    derive_state_impl(input, false)
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}
+
+#[proc_macro_derive(AsyncState, attributes(flowstate))]
+pub fn derive_async_state(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    derive_state_impl(input, true)
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
 }
@@ -18,7 +27,16 @@ pub fn derive_state(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 pub fn derive_workflow(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
-    derive_workflow_impl(input)
+    derive_workflow_impl(input, false)
+        .unwrap_or_else(|e| e.to_compile_error())
+        .into()
+}
+
+#[proc_macro_derive(AsyncWorkflow, attributes(flowstate, state))]
+pub fn derive_async_workflow(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+
+    derive_workflow_impl(input, true)
         .unwrap_or_else(|e| e.to_compile_error())
         .into()
 }

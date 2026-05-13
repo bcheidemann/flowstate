@@ -20,4 +20,3 @@ flowstate_proc = { version = "0.7.2", path = "../flowstate_proc", optional = tru
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
-tracing-subscriber = "0.3.23"

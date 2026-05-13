@@ -3,12 +3,15 @@ use tracing::Instrument;
 use tracing::{Span, trace_span};
 
 #[cfg(feature = "async")]
-use flowstate::middleware::AsyncWorkflowMiddleware;
-use flowstate::middleware::{WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata};
+use flowstate::{AsyncContext, middleware::AsyncWorkflowMiddleware};
+use flowstate::{
+    Context, TypedKey,
+    middleware::{WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata},
+};
 
 pub struct TracingMiddleware<
-    W = fn(&WorkflowMetadata) -> Span,
-    S = fn(&WorkflowStateMetadata) -> Span,
+    W = fn(&WorkflowMetadata) -> Option<Span>,
+    S = fn(&WorkflowStateMetadata) -> Option<Span>,
 > {
     workflow_span_factory: W,
     state_span_factory: S,
@@ -17,8 +20,12 @@ pub struct TracingMiddleware<
 impl Default for TracingMiddleware {
     fn default() -> Self {
         Self {
-            workflow_span_factory: |m| trace_span!("flowstate::Workflow", workflow.name = m.name),
-            state_span_factory: |m| trace_span!("flowstate::WorkflowState", state.name = m.name),
+            workflow_span_factory: |m| {
+                Some(trace_span!("flowstate::Workflow", workflow.name = m.name))
+            },
+            state_span_factory: |m| {
+                Some(trace_span!("flowstate::WorkflowState", state.name = m.name))
+            },
         }
     }
 }
@@ -31,11 +38,18 @@ where
     fn wrap_workflow<'workflow, Result>(
         &self,
         metadata: &'workflow WorkflowMetadata<'workflow>,
+        ctx: &Context,
         next: impl FnOnce() -> Result,
     ) -> impl FnOnce() -> Result {
         || {
-            let span = self.workflow_span_factory.make_workflow_span(metadata);
-            let _guard = span.enter();
+            if let Some(span) = ctx.get::<Span>(&TypedKey::new("span")) {
+                let _guard = span.enter();
+                return next();
+            }
+            if let Some(span) = self.workflow_span_factory.make_workflow_span(metadata) {
+                let _guard = span.enter();
+                return next();
+            }
             next()
         }
     }
@@ -43,11 +57,18 @@ where
     fn wrap_state<'state, Transition>(
         &self,
         metadata: &'state WorkflowStateMetadata<'state>,
+        ctx: &Context,
         next: impl FnOnce() -> Transition,
     ) -> impl FnOnce() -> Transition {
         || {
-            let span = self.state_span_factory.make_state_span(metadata);
-            let _guard = span.enter();
+            if let Some(span) = ctx.get::<Span>(&TypedKey::new("span")) {
+                let _guard = span.enter();
+                return next();
+            }
+            if let Some(span) = self.state_span_factory.make_state_span(metadata) {
+                let _guard = span.enter();
+                return next();
+            }
             next()
         }
     }
@@ -62,17 +83,31 @@ where
     fn wrap_workflow<'workflow, T: Send + 'workflow>(
         &self,
         metadata: &'workflow WorkflowMetadata<'workflow>,
+        ctx: &AsyncContext,
         fut: impl Future<Output = T> + Send + 'workflow,
     ) -> impl Future<Output = T> + Send + 'workflow {
-        fut.instrument(self.workflow_span_factory.make_workflow_span(metadata))
+        if let Some(span) = ctx.get::<Span>(&TypedKey::new("span")) {
+            return fut.instrument(span.clone());
+        }
+        if let Some(span) = self.workflow_span_factory.make_workflow_span(metadata) {
+            return fut.instrument(span.clone());
+        }
+        fut.instrument(Span::none())
     }
 
     fn wrap_state<'state, Transition: Send + 'state>(
         &self,
         metadata: &'state WorkflowStateMetadata<'state>,
+        ctx: &AsyncContext,
         fut: impl Future<Output = Transition> + Send + 'state,
     ) -> impl Future<Output = Transition> + Send + 'state {
-        fut.instrument(self.state_span_factory.make_state_span(metadata))
+        if let Some(span) = ctx.get::<Span>(&TypedKey::new("span")) {
+            return fut.instrument(span.clone());
+        }
+        if let Some(span) = self.state_span_factory.make_state_span(metadata) {
+            return fut.instrument(span.clone());
+        }
+        fut.instrument(Span::none())
     }
 }
 
@@ -99,21 +134,33 @@ impl<W, S> TracingMiddleware<W, S> {
 }
 
 pub trait WorkflowSpanFactory {
-    fn make_workflow_span(&self, metadata: &WorkflowMetadata) -> Span;
+    fn make_workflow_span(&self, metadata: &WorkflowMetadata) -> Option<Span>;
 }
 
-impl<F: Fn(&WorkflowMetadata) -> Span> WorkflowSpanFactory for F {
-    fn make_workflow_span(&self, metadata: &WorkflowMetadata) -> Span {
+impl<F: Fn(&WorkflowMetadata) -> Option<Span>> WorkflowSpanFactory for F {
+    fn make_workflow_span(&self, metadata: &WorkflowMetadata) -> Option<Span> {
         self(metadata)
     }
 }
 
-pub trait StateSpanFactory {
-    fn make_state_span(&self, metadata: &WorkflowStateMetadata) -> Span;
+impl WorkflowSpanFactory for () {
+    fn make_workflow_span(&self, _metadata: &WorkflowMetadata) -> Option<Span> {
+        None
+    }
 }
 
-impl<F: Fn(&WorkflowStateMetadata) -> Span> StateSpanFactory for F {
-    fn make_state_span(&self, metadata: &WorkflowStateMetadata) -> Span {
+pub trait StateSpanFactory {
+    fn make_state_span(&self, metadata: &WorkflowStateMetadata) -> Option<Span>;
+}
+
+impl<F: Fn(&WorkflowStateMetadata) -> Option<Span>> StateSpanFactory for F {
+    fn make_state_span(&self, metadata: &WorkflowStateMetadata) -> Option<Span> {
         self(metadata)
+    }
+}
+
+impl StateSpanFactory for () {
+    fn make_state_span(&self, _metadata: &WorkflowStateMetadata) -> Option<Span> {
+        None
     }
 }

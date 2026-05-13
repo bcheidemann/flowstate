@@ -1,8 +1,7 @@
 use flowstate::prelude::*;
 
-#[derive(Workflow)]
+#[derive(AsyncWorkflow)]
 #[flowstate(
-    is_async = true,
     result = WorkflowResult,
     state_trait = BasicWorkflowState,
 )]
@@ -11,7 +10,7 @@ struct BasicWorkflow<State> {
     _state: State,
 }
 
-#[derive(State)]
+#[derive(AsyncState)]
 struct StateA;
 
 #[async_state]
@@ -21,7 +20,7 @@ impl BasicWorkflowState for BasicWorkflow<StateA> {
     }
 }
 
-#[derive(State)]
+#[derive(AsyncState)]
 struct StateB;
 
 #[async_state]

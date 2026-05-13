@@ -127,6 +127,10 @@ flowstate_derive_err!(
     |arg: &'static str| format!("Duplicate `{arg}` argument")
 );
 flowstate_derive_err!(
+    DeprecatedIsAsync,
+    "The use of `is_async` is deprecated. Use #[derive(AsyncWorkflow)] instead."
+);
+flowstate_derive_err!(
     UnknownAttributeArgument,
     UnknownAttributeArgumentSource,
     |name: String| format!("Unknown argument `{name}`")
@@ -139,4 +143,10 @@ flowstate_derive_err!(
 flowstate_derive_err!(
     UnexpectedArgumentsForStateAttribute,
     "The #[state] attribute takes no arguments"
+);
+flowstate_derive_err!(UnexpectedAttribute, "Unexpected attribute");
+flowstate_derive_err!(
+    ExpectedField,
+    ExpectedFieldSource,
+    |kind: &'static str| format!("Expected field. Found {kind}.")
 );

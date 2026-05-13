@@ -1,6 +1,6 @@
 use std::any::type_name;
 
-use flowstate::{AsyncWorkflowState, prelude::*};
+use flowstate::{AsyncWorkflow, AsyncWorkflowState, prelude::*};
 
 struct BasicWorkflow<State> {
     _state: State,
@@ -12,18 +12,18 @@ impl BasicWorkflow<StateA> {
     }
 }
 
-impl<State: flowstate::State> Workflow for BasicWorkflow<State> {
+impl<State: flowstate::AsyncState> AsyncWorkflow for BasicWorkflow<State> {
     fn workflow_name(&self) -> String {
         type_name::<Self>().to_string()
     }
 
-    fn state(&self) -> &dyn flowstate::State {
+    fn state(&self) -> &dyn flowstate::AsyncState {
         &self._state
     }
 }
 
 #[async_state]
-trait BasicWorkflowState: Workflow {
+trait BasicWorkflowState: AsyncWorkflow {
     fn state_name(&self) -> String {
         self.state().name()
     }
@@ -34,7 +34,7 @@ trait BasicWorkflowState: Workflow {
 #[async_state]
 impl<State> AsyncWorkflowState<'static, WorkflowResult> for BasicWorkflow<State>
 where
-    State: flowstate::State + Send,
+    State: flowstate::AsyncState + Send,
     BasicWorkflow<State>: BasicWorkflowState,
 {
     fn name(&self) -> String {
@@ -57,7 +57,7 @@ impl<State> BasicWorkflow<State> {
 
 struct StateA;
 
-impl State for StateA {
+impl AsyncState for StateA {
     fn name(&self) -> String {
         type_name::<StateA>().to_string()
     }
@@ -72,7 +72,7 @@ impl BasicWorkflowState for BasicWorkflow<StateA> {
 
 struct StateB;
 
-impl State for StateB {
+impl AsyncState for StateB {
     fn name(&self) -> String {
         type_name::<StateB>().to_string()
     }

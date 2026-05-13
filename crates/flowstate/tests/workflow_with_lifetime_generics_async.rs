@@ -5,9 +5,8 @@ struct StrContainer<'a> {
     my_str: &'a str,
 }
 
-#[derive(Workflow)]
+#[derive(AsyncWorkflow)]
 #[flowstate(
-    is_async = true,
     result = WorkflowResult,
     state_trait = MyWorkflowState,
 )]
@@ -19,7 +18,7 @@ struct MyWorkflow<'workflow, State> {
     message: String,
 }
 
-#[derive(State)]
+#[derive(AsyncState)]
 struct StateA<'a, const N: usize, T>(&'a T)
 where
     T: AsRef<str>;
@@ -39,7 +38,7 @@ where
     }
 }
 
-#[derive(State)]
+#[derive(AsyncState)]
 struct StateB<'a, const N: usize, T>(#[allow(unused)] &'a T);
 
 #[async_state]

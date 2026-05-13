@@ -6,9 +6,8 @@ use flowstate_middleware_tracing::TracingMiddleware;
 use tracing::{Level, info, info_span, instrument::WithSubscriber};
 use tracing_test_subscriber::TestSubscriber;
 
-#[derive(Workflow)]
+#[derive(AsyncWorkflow)]
 #[flowstate(
-    is_async = true,
     result = WorkflowResult,
     state_trait = BasicWorkflowState,
     name = "BasicWorkflow"
@@ -18,19 +17,29 @@ struct BasicWorkflow<State> {
     _state: State,
 }
 
-#[derive(State)]
+#[derive(AsyncState)]
 struct StateA;
 
 #[async_state]
 impl BasicWorkflowState for BasicWorkflow<StateA> {
     async fn next(self: Box<Self>) -> AsyncStaticTransition<WorkflowResult> {
         info!("event A");
-        self.transition(StateB)
+        self.transition(StateB {
+            data: "Hello world!",
+        })
     }
 }
 
-#[derive(State)]
-struct StateB;
+#[derive(AsyncState)]
+#[flowstate(
+    ctx.span = info_span!(
+        "StateB",
+        data = self.data,
+    )
+)]
+struct StateB {
+    data: &'static str,
+}
 
 #[async_state]
 impl BasicWorkflowState for BasicWorkflow<StateB> {
@@ -94,18 +103,15 @@ async fn test_tracing_middleware_async() {
     // State B
     assert_eq!(
         history.spans[0].spans[1].attributes.metadata.level(),
-        &Level::TRACE
+        &Level::INFO
     );
     assert_eq!(
         history.spans[0].spans[1].attributes.metadata.name(),
-        "flowstate::WorkflowState"
+        "StateB"
     );
     assert_eq!(
-        history.spans[0].spans[1]
-            .attributes
-            .fields
-            .get("state.name"),
-        Some(&"\"tracing_middleware_async::StateB\"".to_string())
+        history.spans[0].spans[1].attributes.fields.get("data"),
+        Some(&"\"Hello world!\"".to_string())
     );
     assert_eq!(history.spans[0].spans[0].events.len(), 1);
     assert_eq!(
@@ -126,10 +132,13 @@ async fn test_tracing_middleware_custom_spans_async() {
     let workflow = BasicWorkflow::new(StateA);
     let middleware = TracingMiddleware::default()
         .with_workflow_span(|m: &WorkflowMetadata| {
-            info_span!("custom workflow span", my_workflow_name = m.name)
+            Some(info_span!(
+                "custom workflow span",
+                my_workflow_name = m.name
+            ))
         })
         .with_state_span(|m: &WorkflowStateMetadata| {
-            info_span!("custom state span", my_state_name = m.name)
+            Some(info_span!("custom state span", my_state_name = m.name))
         });
 
     let result = workflow
@@ -181,14 +190,11 @@ async fn test_tracing_middleware_custom_spans_async() {
     );
     assert_eq!(
         history.spans[0].spans[1].attributes.metadata.name(),
-        "custom state span"
+        "StateB"
     );
     assert_eq!(
-        history.spans[0].spans[1]
-            .attributes
-            .fields
-            .get("my_state_name"),
-        Some(&"\"tracing_middleware_async::StateB\"".to_string())
+        history.spans[0].spans[1].attributes.fields.get("data"),
+        Some(&"\"Hello world!\"".to_string())
     );
     assert_eq!(history.spans[0].spans[1].events.len(), 1);
     assert_eq!(
