@@ -17,5 +17,6 @@ flowstate = { version = "0.7.2", path = "../flowstate", default-features = false
 tracing = "0.1"
 
 [dev-dependencies]
+flowstate = { version = "0.7.2", path = "../flowstate", default-features = false, features = ["unstable_middleware", "macros"] }
 tokio = { version = "1", features = ["rt", "macros"] }
 tracing_test_subscriber = { version = "0.1.0", path = "../tracing_test_subscriber" }
