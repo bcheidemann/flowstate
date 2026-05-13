@@ -11,6 +11,7 @@ readme = "README.md"
 [features]
 async = ["dep:async-trait"]
 macros = ["dep:flowstate_proc"]
+unstable_middleware = []
 default = ["async", "macros"]
 
 [dependencies]

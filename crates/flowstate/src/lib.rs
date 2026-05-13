@@ -1,3 +1,4 @@
+#[cfg(feature = "unstable_middleware")]
 pub mod middleware;
 pub mod prelude;
 

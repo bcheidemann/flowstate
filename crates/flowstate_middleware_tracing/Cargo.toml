@@ -8,7 +8,7 @@ async = ["flowstate/async"]
 default = ["async"]
 
 [dependencies]
-flowstate = { version = "0.7.1", path = "../flowstate", default-features = false }
+flowstate = { version = "0.7.1", path = "../flowstate", default-features = false, features = ["unstable_middleware"] }
 tracing = "0.1"
 
 [dev-dependencies]

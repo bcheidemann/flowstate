@@ -1,11 +1,12 @@
 use std::ops::ControlFlow;
 
 #[cfg(feature = "async")]
-use crate::{AsyncTransition, middleware::AsyncWorkflowMiddleware};
-use crate::{
-    State, Transition,
-    middleware::{WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata},
-};
+use crate::AsyncTransition;
+#[cfg(all(feature = "async", feature = "unstable_middleware"))]
+use crate::middleware::AsyncWorkflowMiddleware;
+#[cfg(feature = "unstable_middleware")]
+use crate::middleware::{WorkflowMetadata, WorkflowMiddleware, WorkflowStateMetadata};
+use crate::{State, Transition};
 
 pub trait Workflow {
     fn workflow_name(&self) -> String;
@@ -48,6 +49,7 @@ pub trait WorkflowState<'workflow, Result>: Workflow {
         }
     }
 
+    #[cfg(feature = "unstable_middleware")]
     fn run_with_middleware<Middleware>(self, middleware: Middleware) -> Result
     where
         Self: WorkflowState<'workflow, Result> + Sized,
@@ -72,6 +74,7 @@ pub trait WorkflowState<'workflow, Result>: Workflow {
     }
 }
 
+#[cfg(feature = "unstable_middleware")]
 fn run_with_middleware<'workflow, Workflow, Middleware, Result>(
     initial_state: Workflow,
     middleware: Middleware,
@@ -89,6 +92,7 @@ where
     middleware.wrap_workflow(&metadata, run_workflow_fn)()
 }
 
+#[cfg(feature = "unstable_middleware")]
 fn run_with_middleware_impl<'workflow, Workflow, Middleware, Result>(
     initial_workflow_state: Workflow,
     middleware: &Middleware,
@@ -149,6 +153,7 @@ pub trait AsyncWorkflowState<'workflow, Result>: Workflow + Send {
         }
     }
 
+    #[cfg(feature = "unstable_middleware")]
     async fn run_with_middleware<Middleware>(self, middleware: Middleware) -> Result
     where
         Self: AsyncWorkflowState<'workflow, Result> + Sized,
@@ -174,7 +179,7 @@ pub trait AsyncWorkflowState<'workflow, Result>: Workflow + Send {
     }
 }
 
-#[cfg(feature = "async")]
+#[cfg(all(feature = "async", feature = "unstable_middleware"))]
 async fn run_with_middleware_async<'workflow, Workflow, Middleware, Result>(
     initial_state: Workflow,
     middleware: Middleware,
@@ -193,7 +198,7 @@ where
     middleware.wrap_workflow(&metadata, run_workflow_fut).await
 }
 
-#[cfg(feature = "async")]
+#[cfg(all(feature = "async", feature = "unstable_middleware"))]
 async fn run_with_middleware_async_impl<'workflow, Workflow, Middleware, Result>(
     initial_workflow_state: Workflow,
     middleware: &Middleware,
