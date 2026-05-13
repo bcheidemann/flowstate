@@ -15,7 +15,7 @@ dependencies = [
 
 [[package]]
 name = "flowstate"
-version = "0.7.2"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "flowstate_proc",
@@ -24,7 +24,7 @@ dependencies = [
 
 [[package]]
 name = "flowstate_middleware_tracing"
-version = "0.7.2"
+version = "0.8.0"
 dependencies = [
  "flowstate",
  "tokio",
@@ -34,7 +34,7 @@ dependencies = [
 
 [[package]]
 name = "flowstate_proc"
-version = "0.7.2"
+version = "0.8.0"
 dependencies = [
  "proc-macro2",
  "quote",
