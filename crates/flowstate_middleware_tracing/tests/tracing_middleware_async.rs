@@ -180,7 +180,7 @@ async fn test_tracing_middleware_custom_spans_async() {
         &Level::INFO
     );
     assert_eq!(
-        history.spans[0].spans[0].attributes.metadata.name(),
+        history.spans[0].spans[1].attributes.metadata.name(),
         "custom state span"
     );
     assert_eq!(

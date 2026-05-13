@@ -105,7 +105,7 @@ fn test_tracing_middleware() {
             .get("state.name"),
         Some(&"\"tracing_middleware::StateB\"".to_string())
     );
-    assert_eq!(history.spans[0].spans[0].events.len(), 1);
+    assert_eq!(history.spans[0].spans[1].events.len(), 1);
     assert_eq!(
         history.spans[0].spans[1].events[0].fields.get("message"),
         Some(&"event B".to_string())
@@ -177,7 +177,7 @@ fn test_tracing_middleware_custom_spans() {
         &Level::INFO
     );
     assert_eq!(
-        history.spans[0].spans[0].attributes.metadata.name(),
+        history.spans[0].spans[1].attributes.metadata.name(),
         "custom state span"
     );
     assert_eq!(
