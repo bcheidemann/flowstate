@@ -2,6 +2,7 @@
 name = "tracing_test_subscriber"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "Implementation of the `tracing::Subscriber` trait, which records a structured history of spans and events for use in tests."
 homepage = "https://github.com/bcheidemann/flowstate/tree/main/crates/tracing_test_subscriber"
 repository = "https://github.com/bcheidemann/flowstate/tree/main/crates/tracing_test_subscriber"
