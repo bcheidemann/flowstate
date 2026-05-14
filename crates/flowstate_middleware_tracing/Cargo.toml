@@ -1,6 +1,6 @@
 [package]
 name = "flowstate_middleware_tracing"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Tracing middleware for flowstate."
@@ -13,10 +13,10 @@ async = ["flowstate/async"]
 default = ["async"]
 
 [dependencies]
-flowstate = { version = "0.8.0", path = "../flowstate", default-features = false, features = ["unstable_middleware"] }
+flowstate = { version = "0.8.1", path = "../flowstate", default-features = false, features = ["unstable_middleware"] }
 tracing = "0.1"
 
 [dev-dependencies]
-flowstate = { version = "0.8.0", path = "../flowstate", default-features = false, features = ["unstable_middleware", "macros"] }
+flowstate = { version = "0.8.1", path = "../flowstate", default-features = false, features = ["unstable_middleware", "macros"] }
 tokio = { version = "1", features = ["rt", "macros"] }
 tracing_test_subscriber = { version = "0.1.0", path = "../tracing_test_subscriber" }
