@@ -12,8 +12,8 @@ pub struct TypedKey<T: ?Sized> {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RawKey {
-    key: String,
-    type_id: TypeId,
+    pub key: String,
+    pub type_id: TypeId,
 }
 
 impl<T: 'static> TypedKey<T> {
